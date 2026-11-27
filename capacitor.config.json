@@ -1,0 +1,6 @@
+{
+  "appId": "com.cbt.quizgenerator",
+  "appName": "CBT Quiz Generator",
+  "webDir": "www",
+  "bundledWebRuntime": false
+}
