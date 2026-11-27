@@ -2867,15 +2867,35 @@ Rules:
 Return ONLY a valid JSON array (no markdown fences) where each object has:
 {"topic":"Subtopic Name","type":"VVI or HOTS","q":"Question text","options":["optA","optB","optC","optD"],"correct":0,"optionsInfo":["expA","expB","expC","expD"]}`;
 
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.7, responseMimeType: "application/json" }
-        })
-      });
+      let modelId = window._activeGeminiModel || "gemini-3.8-flash";
+      const callModel = async (mId) => {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${mId}:generateContent?key=${encodeURIComponent(apiKey)}`;
+        return fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.7, responseMimeType: "application/json" }
+          })
+        });
+      };
+
+      let res = await callModel(modelId);
+      if (res.status === 404) {
+        const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`);
+        if (listRes.ok) {
+          const listData = await listRes.json();
+          const flashModels = (listData.models || []).filter(m =>
+            m.name && m.name.includes("flash") && !m.name.includes("tts") &&
+            Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes("generateContent")
+          );
+          if (flashModels.length > 0) {
+            modelId = flashModels[flashModels.length - 1].name.replace(/^models\//, "");
+            window._activeGeminiModel = modelId;
+            res = await callModel(modelId);
+          }
+        }
+      }
 
       if (!res.ok) {
         const errText = await res.text();
