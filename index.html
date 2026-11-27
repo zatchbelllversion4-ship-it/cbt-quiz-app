@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>CBT Quiz Generator &amp; Exam Simulator</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -20,6 +21,12 @@
   <!-- Toast Notification -->
   <div id="toast" class="hidden fixed bottom-5 right-5 z-50 max-w-sm bg-slate-900 text-white text-xs sm:text-sm font-medium px-4 py-3 rounded-xl shadow-lg border border-slate-700"></div>
 
+  <!-- Floating Background Generation Pill -->
+  <div id="bgGenPill" class="hidden fixed bottom-5 left-5 z-40 bg-indigo-900 text-white px-4 py-2.5 rounded-xl shadow-xl border border-indigo-700 flex items-center gap-3 cursor-pointer">
+    <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+    <span id="bgGenPillText" class="text-xs font-semibold">Generating in background...</span>
+  </div>
+
   <!-- ==================== HOME / LIBRARY VIEW ==================== -->
   <div id="homeView" class="flex-1 flex flex-col">
     <header class="bg-slate-900 text-white shadow-md sticky top-0 z-30">
@@ -30,10 +37,13 @@
           </div>
           <div>
             <h1 class="text-sm sm:text-base font-bold leading-tight">CBT Quiz Generator &amp; Exam Simulator</h1>
-            <p class="text-xs text-slate-300">Untimed Practice &bull; Instant 4-Option Concept Breakdown</p>
+            <p class="text-xs text-slate-300">Fast Parallel AI &bull; Local History &bull; PDF Export &bull; 4-Option Breakdown</p>
           </div>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
+          <button id="openHistoryModalBtn" type="button" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition">
+            History
+          </button>
           <button id="openImportModalBtn" type="button" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition">
             Import JSON
           </button>
@@ -44,14 +54,15 @@
       </div>
     </header>
 
-    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
-      <!-- Quick Banner -->
-      <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-5">
+      <!-- Library Toolbar -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div class="space-y-1">
           <h2 class="text-base sm:text-lg font-extrabold text-slate-900">Your CBT Test Library</h2>
-          <p class="text-xs sm:text-sm text-slate-600">Select any saved test below to practice, or generate a brand-new VVI &amp; HOTS test on any topic using your free Gemini API key.</p>
+          <p class="text-xs sm:text-sm text-slate-600">All tests, answers, bookmarks, and score history are saved locally on your device.</p>
         </div>
-        <div class="flex items-center gap-2 shrink-0">
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <input id="librarySearchInput" type="text" placeholder="Search saved tests..." class="border border-slate-300 rounded-lg px-3 py-1.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-48 sm:w-56" />
           <span id="libraryCountBadge" class="bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-bold px-3 py-1.5 rounded-lg">1 Saved Test</span>
         </div>
       </div>
@@ -109,8 +120,13 @@
             <span id="qTopicBadge" class="bg-slate-200 text-slate-700 text-xs font-semibold px-2.5 py-1 rounded-md">Topic</span>
             <span id="qTypeBadge" class="bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-1 rounded-md">VVI</span>
           </div>
-          <div class="text-xs font-medium text-slate-500">
-            Marks: <span class="text-emerald-700 font-semibold">+1</span> | Negative: <span class="text-slate-700 font-semibold">0</span>
+          <div class="flex items-center gap-3">
+            <button id="bookmarkBtn" type="button" class="text-xs font-semibold px-2.5 py-1 rounded-md border border-slate-300 bg-white hover:bg-amber-50 text-slate-600 transition">
+              &#9734; Bookmark
+            </button>
+            <div id="marksSchemeLabel" class="text-xs font-medium text-slate-500">
+              +1 | Neg: 0
+            </div>
           </div>
         </div>
 
@@ -182,19 +198,29 @@
           </div>
         </div>
 
-        <!-- Topic Filter -->
-        <div>
-          <label for="topicFilter" class="block text-xs font-semibold text-slate-600 mb-1">Filter by Topic</label>
-          <select id="topicFilter" class="w-full text-xs border border-slate-300 rounded-lg px-2.5 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
-            <option value="ALL">All Topics</option>
-          </select>
+        <!-- Negative Marking & Topic Filter -->
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label for="topicFilter" class="block text-[11px] font-semibold text-slate-600 mb-1">Filter Topic / Status</label>
+            <select id="topicFilter" class="w-full text-xs border border-slate-300 rounded-lg px-2 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="ALL">All Questions</option>
+            </select>
+          </div>
+          <div>
+            <label for="negMarkingSelect" class="block text-[11px] font-semibold text-slate-600 mb-1">Negative Marking</label>
+            <select id="negMarkingSelect" class="w-full text-xs border border-slate-300 rounded-lg px-2 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="0">None (0)</option>
+              <option value="0.25">-0.25 (1/4)</option>
+              <option value="0.33">-0.33 (1/3)</option>
+            </select>
+          </div>
         </div>
 
         <!-- Question Number Grid -->
         <div id="paletteGrid" class="grid grid-cols-5 sm:grid-cols-10 lg:grid-cols-5 gap-1.5 max-h-80 overflow-y-auto palette-scroll pr-1"></div>
 
         <p class="text-[11px] text-slate-400 leading-snug">
-          Tip: Use keys <strong>A/B/C/D</strong> (or <strong>1–4</strong>) to answer and <strong>&larr; / &rarr;</strong> arrows to navigate.
+          Keys: <strong>A–D</strong> / <strong>1–4</strong> to answer, <strong>&larr; / &rarr;</strong> to navigate.
         </p>
       </aside>
     </main>
@@ -206,7 +232,7 @@
       <div class="flex items-center justify-between border-b border-slate-200 pb-3">
         <div>
           <h2 class="text-base sm:text-lg font-extrabold text-slate-900">Generate New CBT Test with AI</h2>
-          <p class="text-xs text-slate-500">Uses your free Google AI Studio (Gemini) API key</p>
+          <p class="text-xs text-slate-500">High-speed parallel generation &bull; Works in background</p>
         </div>
         <button id="closeAiModalBtn" type="button" class="text-slate-400 hover:text-slate-700 text-xl font-bold px-2">&times;</button>
       </div>
@@ -214,7 +240,7 @@
       <div class="space-y-3.5 text-sm">
         <div>
           <label for="aiTopicInput" class="block text-xs font-semibold text-slate-700 mb-1">Subject / Chapter / Topic</label>
-          <input id="aiTopicInput" type="text" placeholder="e.g., Class 9 History Ch 2 Socialism in Europe and Russian Revolution" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          <input id="aiTopicInput" type="text" placeholder="e.g., Class 9 History Ch 2 Socialism in Europe" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -250,7 +276,7 @@
 
         <div>
           <div class="flex items-center justify-between mb-1">
-            <label for="aiApiKeyInput" class="block text-xs font-semibold text-slate-700">Gemini API Key (Saved locally on your device)</label>
+            <label for="aiApiKeyInput" class="block text-xs font-semibold text-slate-700">Gemini API Key (Saved locally)</label>
             <span class="text-[11px] text-slate-400">Free at aistudio.google.com</span>
           </div>
           <input id="aiApiKeyInput" type="password" placeholder="AIzaSy..." class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
@@ -259,11 +285,14 @@
         <!-- Progress Bar -->
         <div id="aiProgressBox" class="hidden bg-indigo-50 border border-indigo-200 rounded-xl p-3 space-y-2">
           <div class="flex justify-between text-xs font-semibold text-indigo-800">
-            <span id="aiProgressText">Preparing batch...</span>
+            <span id="aiProgressText">Launching fast parallel batches...</span>
             <span id="aiProgressPct">0%</span>
           </div>
           <div class="w-full h-2 bg-indigo-100 rounded-full overflow-hidden">
             <div id="aiProgressBar" class="h-full bg-indigo-600 transition-all" style="width: 0%"></div>
+          </div>
+          <div class="flex justify-end">
+            <button id="minimizeAiGenBtn" type="button" class="text-[11px] font-bold text-indigo-700 hover:underline">Run in Background &rarr;</button>
           </div>
         </div>
 
@@ -273,6 +302,24 @@
       <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
         <button id="cancelAiGenBtn" type="button" class="px-4 py-2 rounded-lg border border-slate-300 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
         <button id="startAiGenBtn" type="button" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold">Generate &amp; Start CBT</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== HISTORY MODAL ==================== -->
+  <div id="historyModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[88vh] overflow-y-auto p-5 sm:p-6 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+        <div>
+          <h2 class="text-lg font-extrabold text-slate-900">Saved Score &amp; Attempt History</h2>
+          <p class="text-xs text-slate-500">Automatically recorded whenever you view results</p>
+        </div>
+        <button id="closeHistoryModalBtn" type="button" class="text-slate-400 hover:text-slate-700 text-xl font-bold px-2">&times;</button>
+      </div>
+      <div id="historyList" class="space-y-2.5"></div>
+      <div class="flex justify-between items-center pt-3 border-t border-slate-200">
+        <button id="clearHistoryBtn" type="button" class="text-xs font-semibold text-rose-600 hover:underline">Clear History</button>
+        <button id="closeHistoryFooterBtn" type="button" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold">Close</button>
       </div>
     </div>
   </div>
@@ -324,7 +371,7 @@
 
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
         <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-3">
-          <div class="text-xs text-indigo-600 font-semibold">Total Score</div>
+          <div class="text-xs text-indigo-600 font-semibold">Net Score</div>
           <div id="modalScore" class="text-2xl font-extrabold text-indigo-900 mt-0.5">0 / 100</div>
         </div>
         <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
@@ -346,13 +393,23 @@
         <div id="topicBreakdownList" class="space-y-2.5"></div>
       </div>
 
-      <div class="flex flex-wrap items-center justify-end gap-2 pt-3 border-t border-slate-200">
-        <button id="modalResetBtn" type="button" class="px-4 py-2 rounded-lg border border-rose-300 text-rose-700 hover:bg-rose-50 text-xs sm:text-sm font-semibold">
-          Restart Test
-        </button>
-        <button id="modalCloseContinueBtn" type="button" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold">
-          Continue Practicing
-        </button>
+      <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-200">
+        <div class="flex items-center gap-2 flex-wrap">
+          <button id="modalExportPdfBtn" type="button" class="px-3.5 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-semibold">
+            Export PDF
+          </button>
+          <button id="modalRetryWrongBtn" type="button" class="px-3.5 py-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 text-xs font-semibold">
+            Retry Wrong Only
+          </button>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="modalResetBtn" type="button" class="px-3.5 py-2 rounded-lg border border-rose-300 text-rose-700 hover:bg-rose-50 text-xs sm:text-sm font-semibold">
+            Restart
+          </button>
+          <button id="modalCloseContinueBtn" type="button" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold">
+            Continue
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -370,7 +427,6 @@
   </div>
 
   <script>
-    // Pre-loaded 100-question Nazism test
     const DEFAULT_NAZISM_QUESTIONS = [
       // --- TOPIC 1: WEIMAR REPUBLIC & VERSAILLES (Q1 - Q17) ---
       {
@@ -2286,10 +2342,10 @@
     ];
 
     const STORAGE_TESTS_KEY = "cbt_gen_tests_v1";
+    const STORAGE_HISTORY_KEY = "cbt_gen_history_v1";
     const STORAGE_KEY_API = "cbt_gen_gemini_key_v1";
     const LABELS = ["A", "B", "C", "D"];
 
-    // Storage Helpers (sandbox-safe try/catch)
     function loadTests() {
       try {
         const raw = localStorage.getItem(STORAGE_TESTS_KEY);
@@ -2305,14 +2361,28 @@
         createdAt: "2026-11-27",
         questions: DEFAULT_NAZISM_QUESTIONS,
         userAnswers: new Array(DEFAULT_NAZISM_QUESTIONS.length).fill(null),
-        markedForReview: new Array(DEFAULT_NAZISM_QUESTIONS.length).fill(false)
+        markedForReview: new Array(DEFAULT_NAZISM_QUESTIONS.length).fill(false),
+        bookmarked: new Array(DEFAULT_NAZISM_QUESTIONS.length).fill(false)
       }];
     }
 
     function saveTests(list) {
+      try { localStorage.setItem(STORAGE_TESTS_KEY, JSON.stringify(list)); } catch (e) {}
+    }
+
+    function loadHistory() {
       try {
-        localStorage.setItem(STORAGE_TESTS_KEY, JSON.stringify(list));
+        const raw = localStorage.getItem(STORAGE_HISTORY_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) return parsed;
+        }
       } catch (e) {}
+      return [];
+    }
+
+    function saveHistory(list) {
+      try { localStorage.setItem(STORAGE_HISTORY_KEY, JSON.stringify(list)); } catch (e) {}
     }
 
     function loadApiKey() {
@@ -2328,28 +2398,40 @@
       t.textContent = msg;
       t.classList.remove("hidden");
       clearTimeout(window._toastTimer);
-      window._toastTimer = setTimeout(() => t.classList.add("hidden"), 3200);
+      window._toastTimer = setTimeout(() => t.classList.add("hidden"), 3500);
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, s => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[s]));
     }
 
     // App State
     let tests = loadTests();
+    let historyLogs = loadHistory();
     let activeTestId = null;
     let currentIndex = 0;
     let activeFilter = "ALL";
+    let negMarking = 0;
     let confirmCallback = null;
+    let wakeLockSentinel = null;
+    let isGeneratingBg = false;
 
-    // Views
+    // Views & Elements
     const homeView = document.getElementById("homeView");
     const examView = document.getElementById("examView");
     const testsGrid = document.getElementById("testsGrid");
+    const librarySearchInput = document.getElementById("librarySearchInput");
     const libraryCountBadge = document.getElementById("libraryCountBadge");
+    const bgGenPill = document.getElementById("bgGenPill");
+    const bgGenPillText = document.getElementById("bgGenPillText");
 
-    // Exam Elements
     const examTitle = document.getElementById("examTitle");
     const examSubtitle = document.getElementById("examSubtitle");
     const qNumberBadge = document.getElementById("qNumberBadge");
     const qTopicBadge = document.getElementById("qTopicBadge");
     const qTypeBadge = document.getElementById("qTypeBadge");
+    const bookmarkBtn = document.getElementById("bookmarkBtn");
+    const marksSchemeLabel = document.getElementById("marksSchemeLabel");
     const qText = document.getElementById("qText");
     const optionsContainer = document.getElementById("optionsContainer");
     const feedbackBox = document.getElementById("feedbackBox");
@@ -2370,17 +2452,20 @@
     const paletteSidebar = document.getElementById("paletteSidebar");
     const togglePaletteBtn = document.getElementById("togglePaletteBtn");
     const topicFilter = document.getElementById("topicFilter");
+    const negMarkingSelect = document.getElementById("negMarkingSelect");
     const paletteGrid = document.getElementById("paletteGrid");
     const paletteTitle = document.getElementById("paletteTitle");
 
-    // Modals
     const resultModal = document.getElementById("resultModal");
     const aiGenModal = document.getElementById("aiGenModal");
     const importModal = document.getElementById("importModal");
+    const historyModal = document.getElementById("historyModal");
     const confirmModal = document.getElementById("confirmModal");
 
     function getActiveTest() {
-      return tests.find(t => t.id === activeTestId) || tests[0];
+      const t = tests.find(x => x.id === activeTestId) || tests[0];
+      if (!t.bookmarked) t.bookmarked = new Array(t.questions.length).fill(false);
+      return t;
     }
 
     function openConfirm(title, msg, onConfirm) {
@@ -2394,24 +2479,88 @@
       confirmModal.classList.add("hidden");
       confirmCallback = null;
     });
-
     document.getElementById("okConfirmBtn").addEventListener("click", () => {
       confirmModal.classList.add("hidden");
       if (confirmCallback) confirmCallback();
       confirmCallback = null;
     });
 
+    // ==================== PDF EXPORT (jsPDF) ====================
+    function exportTestPdf(test) {
+      if (!window.jspdf || !window.jspdf.jsPDF) {
+        showToast("PDF library is loading or offline. Please check internet for first PDF export.");
+        return;
+      }
+      try {
+        showToast("Generating PDF...");
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
+        const pageW = doc.internal.pageSize.getWidth();
+        const pageH = doc.internal.pageSize.getHeight();
+        const margin = 12;
+        const maxW = pageW - margin * 2;
+        let y = 16;
+
+        const addLine = (text, size, bold, color = [30, 41, 59], gap = 4.5) => {
+          doc.setFont("helvetica", bold ? "bold" : "normal");
+          doc.setFontSize(size);
+          doc.setTextColor(...color);
+          const lines = doc.splitTextToSize(String(text), maxW);
+          lines.forEach(line => {
+            if (y > pageH - 14) {
+              doc.addPage();
+              y = 14;
+            }
+            doc.text(line, margin, y);
+            y += gap;
+          });
+        };
+
+        addLine(test.title, 14, true, [15, 23, 42], 6);
+        addLine(`${test.subtitle || "CBT Practice"} | ${test.questions.length} Questions | All 4 Options Explained`, 9, false, [100, 116, 139], 7);
+
+        test.questions.forEach((q, idx) => {
+          if (y > pageH - 45) { doc.addPage(); y = 14; }
+          addLine(`Q${idx + 1}. [${q.topic || "General"} | ${q.type || "VVI"}] ${q.q}`, 10, true, [15, 23, 42], 4.8);
+          q.options.forEach((opt, oIdx) => {
+            const isAns = oIdx === q.correct;
+            addLine(`   (${LABELS[oIdx]}) ${opt}${isAns ? "  [CORRECT]" : ""}`, 9.5, isAns, isAns ? [4, 120, 87] : [51, 65, 85], 4.3);
+          });
+          y += 1;
+          (q.optionsInfo || []).forEach((info, oIdx) => {
+            addLine(`   -> Option ${LABELS[oIdx]}: ${info}`, 8.5, false, [71, 85, 105], 4.0);
+          });
+          y += 3.5;
+        });
+
+        const safeName = (test.title || "cbt_test").toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 40);
+        doc.save(`${safeName}.pdf`);
+        showToast("PDF downloaded successfully!");
+      } catch (err) {
+        showToast("PDF export failed: " + (err.message || "Unknown error"));
+      }
+    }
+
     // ==================== LIBRARY RENDERING ====================
     function renderLibrary() {
       homeView.classList.remove("hidden");
       examView.classList.add("hidden");
+      const query = (librarySearchInput.value || "").trim().toLowerCase();
+      const visibleTests = query
+        ? tests.filter(t => (t.title || "").toLowerCase().includes(query) || (t.subtitle || "").toLowerCase().includes(query))
+        : tests;
+
       libraryCountBadge.textContent = `${tests.length} Saved Test${tests.length === 1 ? "" : "s"}`;
       testsGrid.innerHTML = "";
 
-      tests.forEach(test => {
+      if (visibleTests.length === 0) {
+        testsGrid.innerHTML = `<div class="col-span-full bg-white rounded-2xl border border-slate-200 p-8 text-center text-sm text-slate-500">No matching tests found.</div>`;
+        return;
+      }
+
+      visibleTests.forEach(test => {
         const total = test.questions.length;
-        let correct = 0;
-        let attempted = 0;
+        let correct = 0, attempted = 0;
         test.questions.forEach((q, idx) => {
           if (test.userAnswers[idx] !== null && test.userAnswers[idx] !== undefined) {
             attempted++;
@@ -2421,7 +2570,6 @@
 
         const card = document.createElement("div");
         card.className = "bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col justify-between gap-4 hover:border-indigo-300 transition";
-
         card.innerHTML = `
           <div class="space-y-2">
             <div class="flex items-start justify-between gap-2">
@@ -2436,26 +2584,37 @@
               <span class="text-sky-700">Attempted: ${attempted} / ${total}</span>
             </div>
           </div>
-          <div class="flex items-center gap-2 pt-3 border-t border-slate-100">
-            <button data-action="start" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 px-3 rounded-lg transition">
-              ${attempted > 0 ? "Resume CBT" : "Start CBT"}
-            </button>
-            <button data-action="export" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold py-2 px-3 rounded-lg transition">
-              Export
-            </button>
-            <button data-action="delete" class="bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold py-2 px-3 rounded-lg transition">
-              Delete
-            </button>
+          <div class="space-y-2 pt-3 border-t border-slate-100">
+            <div class="flex items-center gap-2">
+              <button data-action="start" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 px-3 rounded-lg transition">
+                ${attempted > 0 ? "Resume CBT" : "Start CBT"}
+              </button>
+              <button data-action="pdf" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-semibold py-2 px-3 rounded-lg transition">
+                PDF
+              </button>
+              <button data-action="export" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold py-2 px-3 rounded-lg transition">
+                JSON
+              </button>
+              <button data-action="delete" class="bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold py-2 px-2.5 rounded-lg transition">
+                Del
+              </button>
+            </div>
           </div>
         `;
 
         card.querySelector('[data-action="start"]').addEventListener("click", () => startTest(test.id));
-        card.querySelector('[data-action="export"]').addEventListener("click", () => exportTestJson(test));
+        card.querySelector('[data-action="pdf"]').addEventListener("click", () => exportTestPdf(test));
+        card.querySelector('[data-action="export"]').addEventListener("click", () => {
+          const blob = new Blob([JSON.stringify(test.questions, null, 2)], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url; a.download = `${test.id}.json`;
+          document.body.appendChild(a); a.click(); a.remove();
+          URL.revokeObjectURL(url);
+          showToast("Exported test JSON.");
+        });
         card.querySelector('[data-action="delete"]').addEventListener("click", () => {
-          if (tests.length === 1) {
-            showToast("Keep at least 1 test in your library.");
-            return;
-          }
+          if (tests.length === 1) { showToast("Keep at least 1 test in your library."); return; }
           openConfirm("Delete Test?", `Remove "${test.title}" from your saved library?`, () => {
             tests = tests.filter(t => t.id !== test.id);
             saveTests(tests);
@@ -2468,22 +2627,7 @@
       });
     }
 
-    function escapeHtml(str) {
-      return String(str).replace(/[&<>"']/g, s => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[s]));
-    }
-
-    function exportTestJson(test) {
-      const blob = new Blob([JSON.stringify(test.questions, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${test.id}.json`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      showToast("Exported test JSON.");
-    }
+    librarySearchInput.addEventListener("input", renderLibrary);
 
     // ==================== EXAM ENGINE ====================
     function startTest(testId) {
@@ -2502,17 +2646,18 @@
       headerTotalMarks.textContent = `/ ${total}`;
       headerTotalQ.textContent = `/ ${total}`;
 
-      // Populate Topic Filter dynamically
       const topics = [...new Set(test.questions.map(q => q.topic || "General"))];
-      topicFilter.innerHTML = `<option value="ALL">All Topics (${total} Questions)</option>`;
+      topicFilter.innerHTML = `
+        <option value="ALL">All Questions (${total})</option>
+        <option value="__BOOKMARKED__">Bookmarked Only</option>
+        <option value="__WRONG__">Incorrect Only</option>
+      `;
       topics.forEach(tp => {
         const opt = document.createElement("option");
-        opt.value = tp;
-        opt.textContent = tp;
+        opt.value = tp; opt.textContent = tp;
         topicFilter.appendChild(opt);
       });
       topicFilter.value = "ALL";
-
       renderQuestion();
     }
 
@@ -2521,6 +2666,8 @@
     function getFilteredIndices() {
       const test = getActiveTest();
       if (activeFilter === "ALL") return test.questions.map((_, i) => i);
+      if (activeFilter === "__BOOKMARKED__") return test.questions.map((_, i) => (test.bookmarked[i] ? i : -1)).filter(i => i !== -1);
+      if (activeFilter === "__WRONG__") return test.questions.map((q, i) => (test.userAnswers[i] !== null && test.userAnswers[i] !== q.correct ? i : -1)).filter(i => i !== -1);
       return test.questions.map((q, i) => ((q.topic || "General") === activeFilter ? i : -1)).filter(i => i !== -1);
     }
 
@@ -2535,23 +2682,28 @@
         }
         if (test.markedForReview[i]) review++;
       }
-      const attempted = correct + wrong;
-      headerScore.textContent = correct;
-      headerAttempted.textContent = attempted;
+      const netScore = Math.round((correct - wrong * negMarking) * 100) / 100;
+      headerScore.textContent = netScore;
+      headerAttempted.textContent = correct + wrong;
       countCorrect.textContent = correct;
       countWrong.textContent = wrong;
       countReview.textContent = review;
-      countLeft.textContent = qs.length - attempted;
+      countLeft.textContent = qs.length - (correct + wrong);
+      marksSchemeLabel.textContent = `+1 | Neg: ${negMarking === 0 ? "0" : "-" + negMarking}`;
     }
 
     function renderPalette() {
       const test = getActiveTest();
       const indices = getFilteredIndices();
       paletteGrid.innerHTML = "";
+      if (indices.length === 0) {
+        paletteGrid.innerHTML = `<div class="col-span-5 text-xs text-slate-400 py-2">No questions match this filter.</div>`;
+        return;
+      }
       indices.forEach(idx => {
         const btn = document.createElement("button");
         btn.type = "button";
-        btn.textContent = idx + 1;
+        btn.textContent = (test.bookmarked[idx] ? "★" : "") + (idx + 1);
 
         let cls = "h-9 rounded-lg text-xs font-bold border transition flex items-center justify-center ";
         const ans = test.userAnswers[idx];
@@ -2559,9 +2711,7 @@
         const isRev = test.markedForReview[idx];
 
         if (ans !== null && ans !== undefined) {
-          cls += ans === test.questions[idx].correct
-            ? "bg-emerald-600 text-white border-emerald-700 "
-            : "bg-rose-600 text-white border-rose-700 ";
+          cls += ans === test.questions[idx].correct ? "bg-emerald-600 text-white border-emerald-700 " : "bg-rose-600 text-white border-rose-700 ";
         } else if (isRev) {
           cls += "bg-purple-600 text-white border-purple-700 ";
         } else {
@@ -2592,6 +2742,14 @@
       qTypeBadge.className = q.type === "HOTS"
         ? "bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-1 rounded-md"
         : "bg-sky-100 text-sky-800 text-xs font-semibold px-2.5 py-1 rounded-md";
+
+      if (test.bookmarked[currentIndex]) {
+        bookmarkBtn.innerHTML = "&#9733; Bookmarked";
+        bookmarkBtn.className = "text-xs font-semibold px-2.5 py-1 rounded-md border border-amber-400 bg-amber-50 text-amber-800 transition";
+      } else {
+        bookmarkBtn.innerHTML = "&#9734; Bookmark";
+        bookmarkBtn.className = "text-xs font-semibold px-2.5 py-1 rounded-md border border-slate-300 bg-white hover:bg-amber-50 text-slate-600 transition";
+      }
 
       qText.textContent = q.q;
 
@@ -2629,11 +2787,8 @@
         }
 
         btn.className = cardCls;
-
         const badge = document.createElement("span");
-        badge.className = badgeCls;
-        badge.textContent = LABELS[optIdx];
-
+        badge.className = badgeCls; badge.textContent = LABELS[optIdx];
         const spanText = document.createElement("span");
         spanText.className = "text-sm sm:text-base font-medium leading-snug flex-1";
         spanText.textContent = optText;
@@ -2644,15 +2799,8 @@
         if (isAnswered) {
           const statusTag = document.createElement("span");
           statusTag.className = "text-xs font-bold shrink-0 mt-1";
-          if (optIdx === q.correct) {
-            statusTag.textContent = "✓ Correct";
-            statusTag.className += " text-emerald-700";
-            btn.appendChild(statusTag);
-          } else if (optIdx === selected) {
-            statusTag.textContent = "✗ Your Choice";
-            statusTag.className += " text-rose-700";
-            btn.appendChild(statusTag);
-          }
+          if (optIdx === q.correct) { statusTag.textContent = "✓ Correct"; statusTag.className += " text-emerald-700"; btn.appendChild(statusTag); }
+          else if (optIdx === selected) { statusTag.textContent = "✗ Your Choice"; statusTag.className += " text-rose-700"; btn.appendChild(statusTag); }
         }
 
         btn.addEventListener("click", () => selectOption(optIdx));
@@ -2675,7 +2823,7 @@
           feedbackBox.classList.add("bg-rose-50/60", "border-rose-200");
           feedbackHeader.innerHTML = `
             <div class="flex items-center gap-2 flex-wrap">
-              <span class="px-2.5 py-1 rounded-md bg-rose-600 text-white text-xs font-bold">✗ WRONG ANSWER (0 Marks)</span>
+              <span class="px-2.5 py-1 rounded-md bg-rose-600 text-white text-xs font-bold">✗ WRONG ANSWER (${negMarking > 0 ? "-" + negMarking : "0"} Marks)</span>
               <span class="text-sm font-semibold text-rose-900">You chose Option ${LABELS[selected]} &bull; Correct Answer: Option ${LABELS[q.correct]}</span>
             </div>
             <span class="text-xs text-rose-700 font-medium">Review all 4 concepts below</span>
@@ -2727,6 +2875,13 @@
       renderQuestion();
     }
 
+    bookmarkBtn.addEventListener("click", () => {
+      const test = getActiveTest();
+      test.bookmarked[currentIndex] = !test.bookmarked[currentIndex];
+      saveTests(tests);
+      renderQuestion();
+    });
+
     prevBtn.addEventListener("click", () => { if (currentIndex > 0) { currentIndex--; renderQuestion(); } });
     nextBtn.addEventListener("click", () => {
       const test = getActiveTest();
@@ -2744,9 +2899,7 @@
       for (let offset = 1; offset <= len; offset++) {
         const idx = (currentIndex + offset) % len;
         if (test.userAnswers[idx] === null || test.userAnswers[idx] === undefined) {
-          currentIndex = idx;
-          renderQuestion();
-          return;
+          currentIndex = idx; renderQuestion(); return;
         }
       }
       showToast("All questions have been answered!");
@@ -2756,29 +2909,31 @@
       activeFilter = e.target.value;
       const filtered = getFilteredIndices();
       if (filtered.length > 0 && !filtered.includes(currentIndex)) {
-        currentIndex = filtered[0];
-        renderQuestion();
+        currentIndex = filtered[0]; renderQuestion();
       } else {
         renderPalette();
       }
     });
 
+    negMarkingSelect.addEventListener("change", (e) => {
+      negMarking = parseFloat(e.target.value) || 0;
+      renderQuestion();
+    });
+
     togglePaletteBtn.addEventListener("click", () => paletteSidebar.classList.toggle("hidden"));
 
     document.getElementById("resetTestBtn").addEventListener("click", () => {
-      openConfirm("Reset This Test?", "This will clear your selected answers, review marks, and current score for this test.", () => {
+      openConfirm("Reset This Test?", "This will clear your selected answers and review marks for this test.", () => {
         const test = getActiveTest();
         test.userAnswers = new Array(test.questions.length).fill(null);
         test.markedForReview = new Array(test.questions.length).fill(false);
-        currentIndex = 0;
-        activeFilter = "ALL";
-        topicFilter.value = "ALL";
+        currentIndex = 0; activeFilter = "ALL"; topicFilter.value = "ALL";
         saveTests(tests);
         renderQuestion();
       });
     });
 
-    // Result Modal
+    // ==================== RESULT & HISTORY LOGGING ====================
     function openResultModal() {
       const test = getActiveTest();
       const total = test.questions.length;
@@ -2798,9 +2953,25 @@
 
       const attempted = correct + wrong;
       const accuracy = attempted > 0 ? Math.round((correct / attempted) * 100) : 0;
+      const netScore = Math.round((correct - wrong * negMarking) * 100) / 100;
+
+      if (attempted > 0) {
+        historyLogs.unshift({
+          id: "hist-" + Date.now(),
+          title: test.title,
+          date: new Date().toLocaleString(),
+          score: `${netScore} / ${total}`,
+          correct,
+          wrong,
+          attempted,
+          accuracy: `${accuracy}%`
+        });
+        if (historyLogs.length > 50) historyLogs = historyLogs.slice(0, 50);
+        saveHistory(historyLogs);
+      }
 
       document.getElementById("modalTestSubtitle").textContent = `${test.title} — ${total} Questions / ${total} Marks`;
-      document.getElementById("modalScore").textContent = `${correct} / ${total}`;
+      document.getElementById("modalScore").textContent = `${netScore} / ${total}`;
       document.getElementById("modalCorrect").textContent = correct;
       document.getElementById("modalWrong").textContent = wrong;
       document.getElementById("modalAccuracy").textContent = `${accuracy}%`;
@@ -2833,8 +3004,68 @@
       resultModal.classList.add("hidden");
       document.getElementById("resetTestBtn").click();
     });
+    document.getElementById("modalExportPdfBtn").addEventListener("click", () => exportTestPdf(getActiveTest()));
 
-    // ==================== AI GENERATOR (GEMINI REST API) ====================
+    document.getElementById("modalRetryWrongBtn").addEventListener("click", () => {
+      const test = getActiveTest();
+      const wrongQs = test.questions.filter((q, i) => test.userAnswers[i] !== null && test.userAnswers[i] !== q.correct);
+      if (wrongQs.length === 0) {
+        showToast("No incorrect questions to retry!");
+        return;
+      }
+      const retryTest = {
+        id: "retry-" + Date.now(),
+        title: `Retry Wrong — ${test.title}`,
+        subtitle: `Focused Revision (${wrongQs.length} Qs)`,
+        createdAt: new Date().toISOString().slice(0, 10),
+        questions: wrongQs.map((q, idx) => ({ ...q, id: idx + 1 })),
+        userAnswers: new Array(wrongQs.length).fill(null),
+        markedForReview: new Array(wrongQs.length).fill(false),
+        bookmarked: new Array(wrongQs.length).fill(false)
+      };
+      tests.unshift(retryTest);
+      saveTests(tests);
+      resultModal.classList.add("hidden");
+      startTest(retryTest.id);
+    });
+
+    // History Modal
+    function renderHistoryModal() {
+      const list = document.getElementById("historyList");
+      list.innerHTML = "";
+      if (historyLogs.length === 0) {
+        list.innerHTML = `<div class="text-sm text-slate-500 text-center py-6">No history yet. Attempt a test and click "View Result" to record your score.</div>`;
+      } else {
+        historyLogs.forEach(h => {
+          const row = document.createElement("div");
+          row.className = "p-3.5 rounded-xl border border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-2";
+          row.innerHTML = `
+            <div>
+              <div class="text-sm font-bold text-slate-900">${escapeHtml(h.title)}</div>
+              <div class="text-xs text-slate-500">${escapeHtml(h.date)}</div>
+            </div>
+            <div class="flex items-center gap-3 text-xs font-bold">
+              <span class="bg-indigo-100 text-indigo-800 px-2.5 py-1 rounded-md">Score: ${escapeHtml(h.score)}</span>
+              <span class="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-md">Acc: ${escapeHtml(h.accuracy)}</span>
+            </div>
+          `;
+          list.appendChild(row);
+        });
+      }
+      historyModal.classList.remove("hidden");
+    }
+
+    document.getElementById("openHistoryModalBtn").addEventListener("click", renderHistoryModal);
+    document.getElementById("closeHistoryModalBtn").addEventListener("click", () => historyModal.classList.add("hidden"));
+    document.getElementById("closeHistoryFooterBtn").addEventListener("click", () => historyModal.classList.add("hidden"));
+    document.getElementById("clearHistoryBtn").addEventListener("click", () => {
+      historyLogs = [];
+      saveHistory(historyLogs);
+      renderHistoryModal();
+      showToast("History cleared.");
+    });
+
+    // ==================== FAST PARALLEL AI GENERATOR ====================
     const aiTopicInput = document.getElementById("aiTopicInput");
     const aiExamLevel = document.getElementById("aiExamLevel");
     const aiQuestionCount = document.getElementById("aiQuestionCount");
@@ -2850,22 +3081,40 @@
     document.getElementById("openAiGenModalBtn").addEventListener("click", () => {
       aiApiKeyInput.value = loadApiKey();
       aiErrorBox.classList.add("hidden");
-      aiProgressBox.classList.add("hidden");
+      if (!isGeneratingBg) aiProgressBox.classList.add("hidden");
       aiGenModal.classList.remove("hidden");
     });
     document.getElementById("closeAiModalBtn").addEventListener("click", () => aiGenModal.classList.add("hidden"));
     document.getElementById("cancelAiGenBtn").addEventListener("click", () => aiGenModal.classList.add("hidden"));
+    document.getElementById("minimizeAiGenBtn").addEventListener("click", () => {
+      aiGenModal.classList.add("hidden");
+      if (isGeneratingBg) bgGenPill.classList.remove("hidden");
+    });
+    bgGenPill.addEventListener("click", () => {
+      bgGenPill.classList.add("hidden");
+      aiGenModal.classList.remove("hidden");
+    });
 
-    async function fetchGeminiBatch(apiKey, topic, level, language, count, batchNum, totalBatches, existingQuestions) {
-      const avoidList = existingQuestions.slice(-15).map(q => q.q.slice(0, 60)).join(" | ");
-      const prompt = `Generate exactly ${count} multiple-choice VVI & HOTS questions on "${topic}" for "${level}" in "${language}".
+    async function requestWakeLock() {
+      try {
+        if ("wakeLock" in navigator) {
+          wakeLockSentinel = await navigator.wakeLock.request("screen");
+        }
+      } catch (e) {}
+    }
+    function releaseWakeLock() {
+      try { if (wakeLockSentinel) { wakeLockSentinel.release(); wakeLockSentinel = null; } } catch (e) {}
+    }
+
+    async function fetchGeminiBatch(apiKey, topic, level, language, count, batchNum, totalBatches) {
+      const prompt = `Generate exactly ${count} unique VVI & HOTS multiple-choice questions on "${topic}" (${level}) in "${language}".
+This is part ${batchNum} of ${totalBatches} — cover distinct subtopics/angles so questions do not overlap with other parts.
 Rules:
-1. Ask questions directly and naturally without meta-references like "according to NCERT".
+1. Ask questions directly without meta-references like "according to NCERT".
 2. All 4 options must be plausible, tricky distractors of similar length and formatting.
-3. "optionsInfo" MUST have 4 detailed explanations (one per option A, B, C, D) explaining why it is right or wrong AND teaching the concept behind that option.
-4. Batch ${batchNum} of ${totalBatches}. Avoid repeating these earlier questions: ${avoidList || "None"}.
-Return ONLY a valid JSON array (no markdown fences) where each object has:
-{"topic":"Subtopic Name","type":"VVI or HOTS","q":"Question text","options":["optA","optB","optC","optD"],"correct":0,"optionsInfo":["expA","expB","expC","expD"]}`;
+3. "optionsInfo" MUST have 4 concise, informative explanations (one for each option A, B, C, D) teaching the concept behind every option.
+Return ONLY a valid JSON array:
+[{"topic":"Subtopic","type":"VVI or HOTS","q":"Question","options":["A","B","C","D"],"correct":0,"optionsInfo":["expA","expB","expC","expD"]}]`;
 
       let modelId = window._activeGeminiModel || "gemini-3.8-flash";
       const callModel = async (mId) => {
@@ -2875,7 +3124,11 @@ Return ONLY a valid JSON array (no markdown fences) where each object has:
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.7, responseMimeType: "application/json" }
+            generationConfig: {
+              temperature: 0.7,
+              responseMimeType: "application/json",
+              thinkingConfig: { thinkingLevel: "low" }
+            }
           })
         });
       };
@@ -2911,6 +3164,7 @@ Return ONLY a valid JSON array (no markdown fences) where each object has:
     }
 
     startAiGenBtn.addEventListener("click", async () => {
+      if (isGeneratingBg) return;
       const topic = aiTopicInput.value.trim();
       const level = aiExamLevel.value;
       const totalWanted = parseInt(aiQuestionCount.value, 10);
@@ -2922,52 +3176,73 @@ Return ONLY a valid JSON array (no markdown fences) where each object has:
       if (!apiKey) { aiErrorBox.textContent = "Please enter your free Gemini API key."; aiErrorBox.classList.remove("hidden"); return; }
 
       saveApiKey(apiKey);
+      isGeneratingBg = true;
       startAiGenBtn.disabled = true;
       startAiGenBtn.textContent = "Generating...";
       aiProgressBox.classList.remove("hidden");
+      await requestWakeLock();
 
-      const BATCH_SIZE = 15;
+      const BATCH_SIZE = 25;
       const totalBatches = Math.ceil(totalWanted / BATCH_SIZE);
+      const batchCounts = [];
+      let left = totalWanted;
+      for (let b = 0; b < totalBatches; b++) {
+        const c = Math.min(BATCH_SIZE, left);
+        batchCounts.push(c);
+        left -= c;
+      }
+
+      let completedBatches = 0;
       let allGenerated = [];
+      const updateProg = () => {
+        const pct = Math.round((completedBatches / totalBatches) * 100);
+        const msg = `Generated ${allGenerated.length}/${totalWanted} Qs (${completedBatches}/${totalBatches} parallel batches)...`;
+        aiProgressText.textContent = msg;
+        aiProgressPct.textContent = `${pct}%`;
+        aiProgressBar.style.width = `${pct}%`;
+        bgGenPillText.textContent = msg;
+      };
+      updateProg();
 
       try {
-        for (let b = 1; b <= totalBatches; b++) {
-          const remaining = totalWanted - allGenerated.length;
-          const batchCount = Math.min(BATCH_SIZE, remaining);
-          const pct = Math.round(((b - 1) / totalBatches) * 100);
-          aiProgressText.textContent = `Generating batch ${b} of ${totalBatches} (${allGenerated.length}/${totalWanted} Qs)...`;
-          aiProgressPct.textContent = `${pct}%`;
-          aiProgressBar.style.width = `${pct}%`;
-
-          const batchQs = await fetchGeminiBatch(apiKey, topic, level, language, batchCount, b, totalBatches, allGenerated);
-          allGenerated = allGenerated.concat(batchQs);
-        }
+        const promises = batchCounts.map((cnt, idx) =>
+          fetchGeminiBatch(apiKey, topic, level, language, cnt, idx + 1, totalBatches)
+            .then(qs => {
+              allGenerated = allGenerated.concat(qs);
+              completedBatches++;
+              updateProg();
+            })
+        );
+        await Promise.all(promises);
 
         if (allGenerated.length === 0) throw new Error("No valid questions were returned. Please try again.");
-
-        aiProgressText.textContent = `Complete! ${allGenerated.length} questions ready.`;
-        aiProgressPct.textContent = "100%";
-        aiProgressBar.style.width = "100%";
 
         const newTest = {
           id: "test-" + Date.now(),
           title: topic,
           subtitle: `${level} • ${language}`,
           createdAt: new Date().toISOString().slice(0, 10),
-          questions: allGenerated.map((q, idx) => ({ ...q, id: idx + 1 })),
-          userAnswers: new Array(allGenerated.length).fill(null),
-          markedForReview: new Array(allGenerated.length).fill(false)
+          questions: allGenerated.slice(0, totalWanted).map((q, idx) => ({ ...q, id: idx + 1 })),
+          userAnswers: new Array(Math.min(allGenerated.length, totalWanted)).fill(null),
+          markedForReview: new Array(Math.min(allGenerated.length, totalWanted)).fill(false),
+          bookmarked: new Array(Math.min(allGenerated.length, totalWanted)).fill(false)
         };
 
         tests.unshift(newTest);
         saveTests(tests);
         aiGenModal.classList.add("hidden");
-        showToast(`Created "${topic}" (${allGenerated.length} Qs)!`);
+        bgGenPill.classList.add("hidden");
+        showToast(`Ready! "${topic}" (${newTest.questions.length} Qs) saved.`);
+        if (!homeView.classList.contains("hidden")) renderLibrary();
         startTest(newTest.id);
       } catch (err) {
-        aiErrorBox.textContent = err.message || "Failed to generate questions. Check your API key or internet connection.";
+        bgGenPill.classList.add("hidden");
+        aiGenModal.classList.remove("hidden");
+        aiErrorBox.textContent = err.message || "Failed to generate questions. Check your API key or internet.";
         aiErrorBox.classList.remove("hidden");
       } finally {
+        isGeneratingBg = false;
+        releaseWakeLock();
         startAiGenBtn.disabled = false;
         startAiGenBtn.textContent = "Generate & Start CBT";
       }
@@ -2996,7 +3271,7 @@ Return ONLY a valid JSON array (no markdown fences) where each object has:
     });
 
     document.getElementById("fillSampleJsonBtn").addEventListener("click", () => {
-      importTitleInput.value = "Sample 2-Question Polity Quiz";
+      importTitleInput.value = "Sample Polity Quiz";
       importJsonTextarea.value = JSON.stringify([
         {
           topic: "Fundamental Rights",
@@ -3005,7 +3280,7 @@ Return ONLY a valid JSON array (no markdown fences) where each object has:
           options: ["Article 14", "Article 15", "Article 17", "Article 21"],
           correct: 2,
           optionsInfo: [
-            "Article 14 guarantees equality before the law and equal protection of the laws.",
+            "Article 14 guarantees equality before the law.",
             "Article 15 prohibits discrimination on grounds of religion, race, caste, sex, or place of birth.",
             "Correct! Article 17 abolishes untouchability and makes its practice a punishable offence.",
             "Article 21 guarantees protection of life and personal liberty."
@@ -3021,7 +3296,7 @@ Return ONLY a valid JSON array (no markdown fences) where each object has:
         const parsed = JSON.parse(importJsonTextarea.value.trim());
         if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("JSON must be a non-empty array of questions.");
         const valid = parsed.filter(item => item.q && Array.isArray(item.options) && item.options.length === 4 && typeof item.correct === "number");
-        if (valid.length === 0) throw new Error("No valid question objects found (each needs q, 4 options, correct index 0-3, and optionsInfo).");
+        if (valid.length === 0) throw new Error("No valid question objects found.");
 
         const normalized = valid.map((q, idx) => ({
           id: idx + 1,
@@ -3040,7 +3315,8 @@ Return ONLY a valid JSON array (no markdown fences) where each object has:
           createdAt: new Date().toISOString().slice(0, 10),
           questions: normalized,
           userAnswers: new Array(normalized.length).fill(null),
-          markedForReview: new Array(normalized.length).fill(false)
+          markedForReview: new Array(normalized.length).fill(false),
+          bookmarked: new Array(normalized.length).fill(false)
         };
 
         tests.unshift(newTest);
@@ -3054,7 +3330,7 @@ Return ONLY a valid JSON array (no markdown fences) where each object has:
       }
     });
 
-    // Keyboard shortcuts inside Exam View
+    // Keyboard shortcuts
     document.addEventListener("keydown", (e) => {
       if (examView.classList.contains("hidden")) return;
       if (!resultModal.classList.contains("hidden") || !confirmModal.classList.contains("hidden")) return;
@@ -3070,7 +3346,7 @@ Return ONLY a valid JSON array (no markdown fences) where each object has:
       else if (["4", "d"].includes(key)) selectOption(3);
     });
 
-    // Start on Home Library
+    // Initial render
     renderLibrary();
   </script>
 </body>
