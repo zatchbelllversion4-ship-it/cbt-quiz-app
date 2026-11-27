@@ -3150,6 +3150,14 @@ Return ONLY a valid JSON array:
         }
       }
 
+      for (let attempt = 1; attempt <= 3 && res.status === 429; attempt++) {
+        const waitSec = attempt * 15;
+        aiProgressText.textContent = `Rate limit (429) — cooling down ${waitSec}s before auto-retry...`;
+        bgGenPillText.textContent = `Cooling down ${waitSec}s (429 retry)...`;
+        await new Promise(r => setTimeout(r, waitSec * 1000));
+        res = await callModel(modelId);
+      }
+
       if (!res.ok) {
         const errText = await res.text();
         throw new Error(`API Error (${res.status}): ${errText.slice(0, 180)}`);
@@ -3205,15 +3213,21 @@ Return ONLY a valid JSON array:
       updateProg();
 
       try {
-        const promises = batchCounts.map((cnt, idx) =>
-          fetchGeminiBatch(apiKey, topic, level, language, cnt, idx + 1, totalBatches)
-            .then(qs => {
-              allGenerated = allGenerated.concat(qs);
-              completedBatches++;
-              updateProg();
-            })
-        );
-        await Promise.all(promises);
+        // Run 2 batches at a time to stay fast while avoiding free-tier 429 spikes
+        for (let i = 0; i < batchCounts.length; i += 2) {
+          const chunk = batchCounts.slice(i, i + 2);
+          await Promise.all(chunk.map((cnt, offset) =>
+            fetchGeminiBatch(apiKey, topic, level, language, cnt, i + offset + 1, totalBatches)
+              .then(qs => {
+                allGenerated = allGenerated.concat(qs);
+                completedBatches++;
+                updateProg();
+              })
+          ));
+          if (i + 2 < batchCounts.length) {
+            await new Promise(r => setTimeout(r, 2000));
+          }
+        }
 
         if (allGenerated.length === 0) throw new Error("No valid questions were returned. Please try again.");
 
