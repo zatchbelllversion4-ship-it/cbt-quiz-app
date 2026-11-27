@@ -1,0 +1,3366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>CBT Quiz Generator &amp; Exam Simulator</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; }
+    .palette-scroll::-webkit-scrollbar { width: 6px; }
+    .palette-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+    .palette-scroll::-webkit-scrollbar-track { background: #f8fafc; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col">
+
+  <!-- Toast Notification -->
+  <div id="toast" class="hidden fixed bottom-5 right-5 z-50 max-w-sm bg-slate-900 text-white text-xs sm:text-sm font-medium px-4 py-3 rounded-xl shadow-lg border border-slate-700"></div>
+
+  <!-- Floating Background Generation Pill -->
+  <div id="bgGenPill" class="hidden fixed bottom-5 left-5 z-40 bg-indigo-900 text-white px-4 py-2.5 rounded-xl shadow-xl border border-indigo-700 flex items-center gap-3 cursor-pointer">
+    <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+    <span id="bgGenPillText" class="text-xs font-semibold">Generating in background...</span>
+  </div>
+
+  <!-- ==================== HOME / LIBRARY VIEW ==================== -->
+  <div id="homeView" class="flex-1 flex flex-col">
+    <header class="bg-slate-900 text-white shadow-md sticky top-0 z-30">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-indigo-600 flex items-center justify-center font-extrabold text-sm tracking-tight shrink-0">
+            CBT
+          </div>
+          <div>
+            <h1 class="text-sm sm:text-base font-bold leading-tight">CBT Quiz Generator &amp; Exam Simulator</h1>
+            <p class="text-xs text-slate-300">Fast Parallel AI &bull; Local History &bull; PDF Export &bull; 4-Option Breakdown</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <button id="openHistoryModalBtn" type="button" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition">
+            History
+          </button>
+          <button id="openImportModalBtn" type="button" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition">
+            Import JSON
+          </button>
+          <button id="openAiGenModalBtn" type="button" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition">
+            + Generate New Test
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-5">
+      <!-- Library Toolbar -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div class="space-y-1">
+          <h2 class="text-base sm:text-lg font-extrabold text-slate-900">Your CBT Test Library</h2>
+          <p class="text-xs sm:text-sm text-slate-600">All tests, answers, bookmarks, and score history are saved locally on your device.</p>
+        </div>
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <input id="librarySearchInput" type="text" placeholder="Search saved tests..." class="border border-slate-300 rounded-lg px-3 py-1.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-48 sm:w-56" />
+          <span id="libraryCountBadge" class="bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-bold px-3 py-1.5 rounded-lg">1 Saved Test</span>
+        </div>
+      </div>
+
+      <!-- Saved Tests Grid -->
+      <div id="testsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    </main>
+  </div>
+
+  <!-- ==================== CBT EXAM VIEW ==================== -->
+  <div id="examView" class="hidden flex-1 flex flex-col">
+    <!-- Top CBT Exam Header -->
+    <header class="bg-slate-900 text-white shadow-md sticky top-0 z-30">
+      <div class="max-w-7xl mx-auto px-3 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5 sm:gap-3">
+          <button id="backToLibraryBtn" type="button" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 px-2.5 py-1.5 rounded-lg text-xs font-semibold shrink-0">
+            &larr; Library
+          </button>
+          <div class="min-w-0">
+            <h1 id="examTitle" class="text-sm sm:text-base font-bold leading-tight truncate max-w-[210px] sm:max-w-md">Test Title</h1>
+            <p id="examSubtitle" class="text-xs text-slate-300">100 Questions &bull; 100 Marks &bull; Untimed Mode</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
+          <div class="flex items-center gap-1.5 bg-slate-800 px-2.5 py-1.5 rounded-lg border border-slate-700 text-xs sm:text-sm">
+            <span class="text-slate-400">Score:</span>
+            <span id="headerScore" class="font-bold text-emerald-400">0</span>
+            <span id="headerTotalMarks" class="text-slate-400">/ 100</span>
+          </div>
+          <div class="flex items-center gap-1.5 bg-slate-800 px-2.5 py-1.5 rounded-lg border border-slate-700 text-xs sm:text-sm">
+            <span class="text-slate-400">Attempted:</span>
+            <span id="headerAttempted" class="font-bold text-sky-400">0</span>
+            <span id="headerTotalQ" class="text-slate-400">/ 100</span>
+          </div>
+          <button id="togglePaletteBtn" type="button" class="lg:hidden bg-slate-800 hover:bg-slate-700 border border-slate-600 px-3 py-1.5 rounded-lg text-xs font-semibold">
+            Palette
+          </button>
+          <button id="submitTestBtn" type="button" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition">
+            View Result
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main CBT Workspace -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+
+      <!-- Left: Question & Instant 4-Option Explanation Panel -->
+      <section class="lg:col-span-8 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+        <!-- Question Meta Bar -->
+        <div class="bg-slate-50 border-b border-slate-200 px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span id="qNumberBadge" class="bg-indigo-600 text-white text-xs font-bold px-2.5 py-1 rounded-md">Q 1 / 100</span>
+            <span id="qTopicBadge" class="bg-slate-200 text-slate-700 text-xs font-semibold px-2.5 py-1 rounded-md">Topic</span>
+            <span id="qTypeBadge" class="bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-1 rounded-md">VVI</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <button id="bookmarkBtn" type="button" class="text-xs font-semibold px-2.5 py-1 rounded-md border border-slate-300 bg-white hover:bg-amber-50 text-slate-600 transition">
+              &#9734; Bookmark
+            </button>
+            <div id="marksSchemeLabel" class="text-xs font-medium text-slate-500">
+              +1 | Neg: 0
+            </div>
+          </div>
+        </div>
+
+        <!-- Question Body -->
+        <div class="p-4 sm:p-6 space-y-5">
+          <div id="qText" class="text-base sm:text-lg font-semibold text-slate-900 leading-relaxed whitespace-pre-line"></div>
+
+          <!-- 4 Options -->
+          <div id="optionsContainer" class="space-y-3"></div>
+
+          <!-- Instant Feedback & All 4 Options Explanation Box -->
+          <div id="feedbackBox" class="hidden rounded-xl border p-4 sm:p-5 space-y-4 transition-all">
+            <div id="feedbackHeader" class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b"></div>
+            <div class="space-y-2.5">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Complete 4-Option Concept Breakdown</h3>
+              <div id="allOptionsExplanations" class="grid grid-cols-1 gap-2.5"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CBT Navigation Footer -->
+        <div class="bg-slate-50 border-t border-slate-200 px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <button id="prevBtn" type="button" class="px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-xs sm:text-sm font-semibold text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition">
+              &larr; Previous
+            </button>
+            <button id="markReviewBtn" type="button" class="px-3.5 py-2 rounded-lg border border-purple-300 bg-purple-50 hover:bg-purple-100 text-xs sm:text-sm font-semibold text-purple-700 transition">
+              Mark for Review
+            </button>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button id="nextUnansweredBtn" type="button" class="px-3 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-xs font-semibold text-slate-600 transition">
+              Next Unanswered
+            </button>
+            <button id="nextBtn" type="button" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold transition">
+              Next &rarr;
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right: CBT Question Palette & Filters -->
+      <aside id="paletteSidebar" class="hidden lg:block lg:col-span-4 bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 lg:sticky lg:top-20">
+        <div class="flex items-center justify-between border-b border-slate-200 pb-2.5">
+          <h2 id="paletteTitle" class="text-sm font-bold text-slate-900">Question Palette</h2>
+          <button id="resetTestBtn" type="button" class="text-xs font-semibold text-rose-600 hover:text-rose-700 underline">
+            Reset Test
+          </button>
+        </div>
+
+        <!-- Status Legend -->
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <div class="flex items-center gap-2 bg-emerald-50 border border-emerald-200 px-2.5 py-1.5 rounded-lg">
+            <span class="w-3 h-3 rounded-sm bg-emerald-600 shrink-0"></span>
+            <span>Correct: <strong id="countCorrect">0</strong></span>
+          </div>
+          <div class="flex items-center gap-2 bg-rose-50 border border-rose-200 px-2.5 py-1.5 rounded-lg">
+            <span class="w-3 h-3 rounded-sm bg-rose-600 shrink-0"></span>
+            <span>Wrong: <strong id="countWrong">0</strong></span>
+          </div>
+          <div class="flex items-center gap-2 bg-purple-50 border border-purple-200 px-2.5 py-1.5 rounded-lg">
+            <span class="w-3 h-3 rounded-sm bg-purple-600 shrink-0"></span>
+            <span>Review: <strong id="countReview">0</strong></span>
+          </div>
+          <div class="flex items-center gap-2 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-lg">
+            <span class="w-3 h-3 rounded-sm bg-slate-300 shrink-0"></span>
+            <span>Left: <strong id="countLeft">0</strong></span>
+          </div>
+        </div>
+
+        <!-- Negative Marking & Topic Filter -->
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label for="topicFilter" class="block text-[11px] font-semibold text-slate-600 mb-1">Filter Topic / Status</label>
+            <select id="topicFilter" class="w-full text-xs border border-slate-300 rounded-lg px-2 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="ALL">All Questions</option>
+            </select>
+          </div>
+          <div>
+            <label for="negMarkingSelect" class="block text-[11px] font-semibold text-slate-600 mb-1">Negative Marking</label>
+            <select id="negMarkingSelect" class="w-full text-xs border border-slate-300 rounded-lg px-2 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="0">None (0)</option>
+              <option value="0.25">-0.25 (1/4)</option>
+              <option value="0.33">-0.33 (1/3)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Question Number Grid -->
+        <div id="paletteGrid" class="grid grid-cols-5 sm:grid-cols-10 lg:grid-cols-5 gap-1.5 max-h-80 overflow-y-auto palette-scroll pr-1"></div>
+
+        <p class="text-[11px] text-slate-400 leading-snug">
+          Keys: <strong>A–D</strong> / <strong>1–4</strong> to answer, <strong>&larr; / &rarr;</strong> to navigate.
+        </p>
+      </aside>
+    </main>
+  </div>
+
+  <!-- ==================== AI GENERATOR MODAL ==================== -->
+  <div id="aiGenModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[92vh] overflow-y-auto p-5 sm:p-6 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+        <div>
+          <h2 class="text-base sm:text-lg font-extrabold text-slate-900">Generate New CBT Test with AI</h2>
+          <p class="text-xs text-slate-500">High-speed parallel generation &bull; Works in background</p>
+        </div>
+        <button id="closeAiModalBtn" type="button" class="text-slate-400 hover:text-slate-700 text-xl font-bold px-2">&times;</button>
+      </div>
+
+      <div class="space-y-3.5 text-sm">
+        <div>
+          <label for="aiTopicInput" class="block text-xs font-semibold text-slate-700 mb-1">Subject / Chapter / Topic</label>
+          <input id="aiTopicInput" type="text" placeholder="e.g., Class 9 History Ch 2 Socialism in Europe" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label for="aiExamLevel" class="block text-xs font-semibold text-slate-700 mb-1">Exam Standard</label>
+            <select id="aiExamLevel" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="NCERT Class 9-10 VVI & HOTS">NCERT VVI &amp; HOTS</option>
+              <option value="DAV CBT TGT Social Science">DAV CBT TGT Social Science</option>
+              <option value="CTET / JTET Paper 2">CTET / JTET Paper 2</option>
+              <option value="SSC CGL General Awareness">SSC CGL Standard</option>
+            </select>
+          </div>
+          <div>
+            <label for="aiQuestionCount" class="block text-xs font-semibold text-slate-700 mb-1">Number of Questions</label>
+            <select id="aiQuestionCount" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="10">10 Questions (10 Marks)</option>
+              <option value="20" selected>20 Questions (20 Marks)</option>
+              <option value="30">30 Questions (30 Marks)</option>
+              <option value="50">50 Questions (50 Marks)</option>
+              <option value="100">100 Questions (100 Marks)</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label for="aiLanguage" class="block text-xs font-semibold text-slate-700 mb-1">Language</label>
+          <select id="aiLanguage" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="English">English</option>
+            <option value="Hindi (Devanagari)">Hindi (Devanagari)</option>
+            <option value="Bilingual (English + Hindi)">Bilingual (English + Hindi)</option>
+          </select>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label for="aiApiKeyInput" class="block text-xs font-semibold text-slate-700">Gemini API Key (Saved locally)</label>
+            <span class="text-[11px] text-slate-400">Free at aistudio.google.com</span>
+          </div>
+          <input id="aiApiKeyInput" type="password" placeholder="AIzaSy..." class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+
+        <!-- Progress Bar -->
+        <div id="aiProgressBox" class="hidden bg-indigo-50 border border-indigo-200 rounded-xl p-3 space-y-2">
+          <div class="flex justify-between text-xs font-semibold text-indigo-800">
+            <span id="aiProgressText">Launching fast parallel batches...</span>
+            <span id="aiProgressPct">0%</span>
+          </div>
+          <div class="w-full h-2 bg-indigo-100 rounded-full overflow-hidden">
+            <div id="aiProgressBar" class="h-full bg-indigo-600 transition-all" style="width: 0%"></div>
+          </div>
+          <div class="flex justify-end">
+            <button id="minimizeAiGenBtn" type="button" class="text-[11px] font-bold text-indigo-700 hover:underline">Run in Background &rarr;</button>
+          </div>
+        </div>
+
+        <div id="aiErrorBox" class="hidden bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl p-3"></div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
+        <button id="cancelAiGenBtn" type="button" class="px-4 py-2 rounded-lg border border-slate-300 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
+        <button id="startAiGenBtn" type="button" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold">Generate &amp; Start CBT</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== HISTORY MODAL ==================== -->
+  <div id="historyModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[88vh] overflow-y-auto p-5 sm:p-6 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+        <div>
+          <h2 class="text-lg font-extrabold text-slate-900">Saved Score &amp; Attempt History</h2>
+          <p class="text-xs text-slate-500">Automatically recorded whenever you view results</p>
+        </div>
+        <button id="closeHistoryModalBtn" type="button" class="text-slate-400 hover:text-slate-700 text-xl font-bold px-2">&times;</button>
+      </div>
+      <div id="historyList" class="space-y-2.5"></div>
+      <div class="flex justify-between items-center pt-3 border-t border-slate-200">
+        <button id="clearHistoryBtn" type="button" class="text-xs font-semibold text-rose-600 hover:underline">Clear History</button>
+        <button id="closeHistoryFooterBtn" type="button" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== IMPORT JSON MODAL ==================== -->
+  <div id="importModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-5 sm:p-6 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+        <h2 class="text-base sm:text-lg font-extrabold text-slate-900">Import CBT Test (JSON)</h2>
+        <button id="closeImportModalBtn" type="button" class="text-slate-400 hover:text-slate-700 text-xl font-bold px-2">&times;</button>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label for="importTitleInput" class="block text-xs font-semibold text-slate-700 mb-1">Test Title</label>
+          <input id="importTitleInput" type="text" placeholder="e.g., Polity Fundamental Rights 50 Q" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label for="importFileInput" class="block text-xs font-semibold text-slate-700 mb-1">Upload .json File (Optional)</label>
+          <input id="importFileInput" type="file" accept=".json,application/json" class="w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label for="importJsonTextarea" class="block text-xs font-semibold text-slate-700">Or Paste JSON Array</label>
+            <button id="fillSampleJsonBtn" type="button" class="text-xs font-semibold text-indigo-600 hover:underline">Insert Sample</button>
+          </div>
+          <textarea id="importJsonTextarea" rows="6" placeholder='[{"topic":"...","type":"VVI","q":"...","options":["A","B","C","D"],"correct":0,"optionsInfo":["...","...","...","..."]}]' class="w-full border border-slate-300 rounded-lg p-2.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+        </div>
+        <div id="importErrorBox" class="hidden bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl p-3"></div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
+        <button id="cancelImportBtn" type="button" class="px-4 py-2 rounded-lg border border-slate-300 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
+        <button id="confirmImportBtn" type="button" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold">Save to Library</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== RESULT & TOPIC ANALYTICS MODAL ==================== -->
+  <div id="resultModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-5 sm:p-6 space-y-5">
+      <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+        <div>
+          <h2 class="text-lg font-extrabold text-slate-900">CBT Performance &amp; Topic Analytics</h2>
+          <p id="modalTestSubtitle" class="text-xs text-slate-500"></p>
+        </div>
+        <button id="closeModalBtn" type="button" class="text-slate-400 hover:text-slate-700 text-xl font-bold px-2">&times;</button>
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+        <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-3">
+          <div class="text-xs text-indigo-600 font-semibold">Net Score</div>
+          <div id="modalScore" class="text-2xl font-extrabold text-indigo-900 mt-0.5">0 / 100</div>
+        </div>
+        <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+          <div class="text-xs text-emerald-600 font-semibold">Correct</div>
+          <div id="modalCorrect" class="text-2xl font-extrabold text-emerald-800 mt-0.5">0</div>
+        </div>
+        <div class="bg-rose-50 border border-rose-200 rounded-xl p-3">
+          <div class="text-xs text-rose-600 font-semibold">Incorrect</div>
+          <div id="modalWrong" class="text-2xl font-extrabold text-rose-800 mt-0.5">0</div>
+        </div>
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
+          <div class="text-xs text-slate-600 font-semibold">Accuracy</div>
+          <div id="modalAccuracy" class="text-2xl font-extrabold text-slate-800 mt-0.5">0%</div>
+        </div>
+      </div>
+
+      <div class="space-y-3">
+        <h3 class="text-sm font-bold text-slate-800">Topic-Wise Mastery Breakdown</h3>
+        <div id="topicBreakdownList" class="space-y-2.5"></div>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-200">
+        <div class="flex items-center gap-2 flex-wrap">
+          <button id="modalExportPdfBtn" type="button" class="px-3.5 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-semibold">
+            Export PDF
+          </button>
+          <button id="modalRetryWrongBtn" type="button" class="px-3.5 py-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 text-xs font-semibold">
+            Retry Wrong Only
+          </button>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="modalResetBtn" type="button" class="px-3.5 py-2 rounded-lg border border-rose-300 text-rose-700 hover:bg-rose-50 text-xs sm:text-sm font-semibold">
+            Restart
+          </button>
+          <button id="modalCloseContinueBtn" type="button" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold">
+            Continue
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== REUSABLE CONFIRMATION MODAL ==================== -->
+  <div id="confirmModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-5 space-y-4">
+      <h3 id="confirmTitle" class="text-base font-bold text-slate-900">Confirm Action</h3>
+      <p id="confirmMessage" class="text-sm text-slate-600"></p>
+      <div class="flex justify-end gap-2">
+        <button id="cancelConfirmBtn" type="button" class="px-4 py-2 rounded-lg border border-slate-300 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
+        <button id="okConfirmBtn" type="button" class="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-xs sm:text-sm font-semibold text-white">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const DEFAULT_NAZISM_QUESTIONS = [
+      // --- TOPIC 1: WEIMAR REPUBLIC & VERSAILLES (Q1 - Q17) ---
+      {
+        id: 1,
+        topic: "Weimar Republic & Versailles",
+        type: "VVI",
+        q: "In the First World War (1914–1918), Germany fought alongside the Austrian Empire against which group of Allied powers?",
+        options: [
+          "England, France, and Russia",
+          "England, Italy, and Japan",
+          "France, USA, and Ottoman Turkey",
+          "Russia, Austria-Hungary, and Belgium"
+        ],
+        correct: 0,
+        optionsInfo: [
+          "Correct! Germany and the Austrian Empire (Central Powers) fought against the Allies—initially England, France, and Russia (later joined by the USA in 1917).",
+          "Italy initially had a treaty with Germany but joined the Allies in 1915, while Japan fought on the Allied side in WWI (unlike WWII, where Italy and Japan joined Germany in the Tripartite Pact).",
+          "Ottoman Turkey was part of the Central Powers alongside Germany and Austria-Hungary, not the Allies; the USA entered on the Allied side in 1917.",
+          "Austria-Hungary was Germany's main Central Power ally, while Belgium was a neutral country invaded by Germany at the start of WWI."
+        ]
+      },
+      {
+        id: 2,
+        topic: "Weimar Republic & Versailles",
+        type: "VVI",
+        q: "Following the abdication of Emperor Wilhelm II in November 1918, where did the National Assembly meet to establish a democratic constitution with a federal structure?",
+        options: [
+          "Berlin",
+          "Munich",
+          "Weimar",
+          "Nuremberg"
+        ],
+        correct: 2,
+        optionsInfo: [
+          "Berlin was the capital of Germany, but due to revolutionary turmoil and street fighting in Berlin in early 1919, the National Assembly could not safely convene there.",
+          "Munich was the capital of Bavaria and later became the birthplace of the Nazi movement and the site of Hitler's failed 1923 Beer Hall Putsch.",
+          "Correct! The National Assembly met at the town of Weimar in 1919 and drafted a democratic constitution with a federal structure, giving the new state the name 'Weimar Republic'.",
+          "Nuremberg was famous later as the city of massive annual Nazi Party rallies, the 1935 racial laws, and the post-WWII International Military Tribunal trials."
+        ]
+      },
+      {
+        id: 3,
+        topic: "Weimar Republic & Versailles",
+        type: "HOTS",
+        q: "Why did many Germans refuse to welcome the newly formed Weimar Republic even though it introduced universal adult franchise including women?",
+        options: [
+          "It abolished the Reichstag and handed power to the military",
+          "It was forced to accept the humiliating terms of the Treaty of Versailles",
+          "It immediately banned all trade unions and socialist parties",
+          "It refused to allow women or minorities to vote in federal elections"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "The Weimar Republic did not abolish the Reichstag; in fact, it established a parliamentary democracy where deputies were elected to the German Parliament (Reichstag).",
+          "Correct! Many Germans held the infant Weimar Republic responsible not only for the defeat in WWI but also for the disgrace and harsh terms of the Treaty of Versailles.",
+          "Trade unions and political parties were legal and active under the Weimar Republic; they were later banned by Hitler under the Enabling Act of 1933.",
+          "On the contrary, the Weimar Constitution granted equal and universal votes cast by all adults, including women, which was progressive for that era."
+        ]
+      },
+      {
+        id: 4,
+        topic: "Weimar Republic & Versailles",
+        type: "VVI",
+        q: "Who were mockingly called the 'November Criminals' by conservative nationalist circles in Germany?",
+        options: [
+          "Communists who led the Spartacist uprising in Berlin",
+          "Socialists, Catholics, and Democrats who supported the Weimar Republic",
+          "French soldiers who occupied the industrial Ruhr valley",
+          "German army generals who surrendered to the Allied forces"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "The Spartacists were radical leftists who opposed the Weimar Republic and sought a Bolshevik-style soviet revolution, rather than supporting the Republic.",
+          "Correct! Socialists, Catholics, and Democrats—the main supporters of the Weimar Republic—were derided as 'November Criminals' because the armistice was signed in November 1918.",
+          "French troops occupied the Ruhr in 1923 over unpaid reparations, which triggered passive resistance and hyperinflation, not the 'November Criminals' label.",
+          "Conservative nationalists deliberately shifted blame away from the Imperial Army generals onto the civilian politicians of the Weimar Republic."
+        ]
+      },
+      {
+        id: 5,
+        topic: "Weimar Republic & Versailles",
+        type: "HOTS",
+        q: "Which combination accurately reflects Germany's territorial and resource losses under the Treaty of Versailles (1919)?",
+        options: [
+          "All overseas colonies, 13% of territories, 75% of iron, and 26% of coal",
+          "Half of overseas colonies, 25% of territories, 50% of iron, and 40% of coal",
+          "All overseas colonies, 10% of territories, 26% of iron, and 75% of coal",
+          "Overseas colonies in Africa only, 13% of population, and 100% of Rhineland"
+        ],
+        correct: 0,
+        optionsInfo: [
+          "Correct! Germany lost all its overseas colonies, a tenth (10%) of its population, 13% of its territories, 75% of its iron, and 26% of its coal to France, Poland, Denmark, and Lithuania.",
+          "These percentages are inaccurate; Germany lost all (not half) of its overseas colonies, and its territorial loss was 13% rather than 25%.",
+          "This swaps the iron and coal figures (it was 75% of iron and 26% of coal) and mixes up the 10% population loss with the 13% territorial loss.",
+          "Germany lost all overseas colonies globally (in Africa and the Pacific), 10% of its population, and the Rhineland was demilitarised and occupied by Allied armies rather than permanently annexed."
+        ]
+      },
+      {
+        id: 6,
+        topic: "Weimar Republic & Versailles",
+        type: "VVI",
+        q: "Under the War Guilt Clause of the Treaty of Versailles, Germany was forced to pay war compensation amounting to:",
+        options: [
+          "£2 billion",
+          "£4 billion",
+          "£6 billion",
+          "£10 billion"
+        ],
+        correct: 2,
+        optionsInfo: [
+          "£2 billion understates the reparation burden imposed by the Allied Reparations Commission under the Treaty of Versailles.",
+          "£4 billion is an incorrect figure; the Allied powers fixed a much higher sum to cover civilian and military war damages.",
+          "Correct! The War Guilt Clause held Germany solely responsible for the war and damages, forcing it to pay £6 billion in compensation.",
+          "£10 billion overstates the £6 billion figure specified in the Versailles settlement."
+        ]
+      },
+      {
+        id: 7,
+        topic: "Weimar Republic & Versailles",
+        type: "VVI",
+        q: "Which resource-rich German region was occupied by the Allied armies for much of the 1920s following the Treaty of Versailles?",
+        options: [
+          "Bavaria",
+          "Rhineland",
+          "Sudetenland",
+          "East Prussia"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Bavaria was a southern German state (capital Munich) where Hitler attempted the 1923 putsch; it was not occupied by Allied armies under the Versailles treaty.",
+          "Correct! The resource-rich Rhineland was demilitarised and occupied by Allied armies for much of the 1920s until Hitler later reoccupied it in 1936.",
+          "Sudetenland was the German-speaking border region of Czechoslovakia, which Hitler annexed in 1938 after the Munich Agreement.",
+          "East Prussia was separated from the rest of Germany by the 'Polish Corridor' given to newly recreated Poland, but it remained German territory."
+        ]
+      },
+      {
+        id: 8,
+        topic: "Weimar Republic & Versailles",
+        type: "HOTS",
+        q: "What was the psychological impact of the First World War on European society and polity, particularly in Germany?",
+        options: [
+          "Civilians were placed above soldiers and pacifism became the dominant state policy",
+          "Europe turned from a continent of debtors into a continent of creditors",
+          "Soldiers were placed above civilians and aggressive masculinity was glorified",
+          "Trench warfare was portrayed honestly as miserable to discourage future wars"
+        ],
+        correct: 2,
+        optionsInfo: [
+          "The exact opposite occurred: soldiers were elevated above civilians, and aggressive nationalism eclipsed pacifism in interwar Europe.",
+          "Before WWI, Europe was a continent of creditors; the war's devastating financial cost turned Europe from a continent of creditors into one of debtors.",
+          "Correct! Politicians and publicists stressed the need for men to be aggressive, strong, and masculine, placing soldiers above civilians and eroding support for fragile democracy.",
+          "The media glorified trench life to maintain nationalist honour, hiding the grim reality of rats feeding on corpses, poisonous gas, and enemy shelling."
+        ]
+      },
+      {
+        id: 9,
+        topic: "Weimar Republic & Versailles",
+        type: "HOTS",
+        q: "Which two inherent constitutional defects made the Weimar Republic politically unstable and vulnerable to dictatorship?",
+        options: [
+          "Hereditary monarchy and absence of women's suffrage",
+          "Proportional representation and Article 48",
+          "Single-party rule and abolition of the federal structure",
+          "Direct presidential elections and judicial review"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "The Weimar Republic abolished hereditary monarchy after Wilhelm II abdicated and explicitly granted universal adult suffrage including women.",
+          "Correct! Proportional representation made achieving a single-party majority nearly impossible (leading to 20 fragile coalition cabinets), while Article 48 let the President impose emergency, suspend civil rights, and rule by decree.",
+          "Single-party rule was established later by Hitler in 1933, and the Weimar Constitution actually created a federal structure rather than abolishing it.",
+          "While the President was directly elected, it was specifically proportional representation and the emergency decree power under Article 48 that destabilised Weimar democracy."
+        ]
+      },
+      {
+        id: 10,
+        topic: "Weimar Republic & Versailles",
+        type: "VVI",
+        q: "In its short lifespan, the Weimar Republic saw how many different cabinets, and what was their average duration?",
+        options: [
+          "10 cabinets lasting on average 450 days",
+          "15 cabinets lasting on average 310 days",
+          "20 cabinets lasting on average 239 days",
+          "25 cabinets lasting on average 180 days"
+        ],
+        correct: 2,
+        optionsInfo: [
+          "10 cabinets lasting 450 days understates the extreme political instability caused by fragmented coalition politics in the Reichstag.",
+          "15 cabinets is incorrect; coalition breakdowns were even more frequent during the 14 years of the Weimar Republic (1919–1933).",
+          "Correct! People lost confidence in the democratic parliamentary system as it witnessed 20 different cabinets lasting on average just 239 days, alongside liberal use of Article 48.",
+          "25 cabinets lasting 180 days overstates the count; the actual tally was 20 cabinets averaging 239 days."
+        ]
+      },
+      {
+        id: 11,
+        topic: "Weimar Republic & Versailles",
+        type: "HOTS",
+        q: "Consider the following statements regarding the Weimar Constitution:\n1. Deputies were elected to the German Parliament (Reichstag) on the basis of equal and universal votes.\n2. Article 48 empowered the Chancellor to dissolve the Parliament without presidential consent.\nWhich of the statements given above is/are correct?",
+        options: [
+          "1 only",
+          "2 only",
+          "Both 1 and 2",
+          "Neither 1 nor 2"
+        ],
+        correct: 0,
+        optionsInfo: [
+          "Correct! Statement 1 is true (universal adult franchise including women), whereas Statement 2 is false because Article 48 gave emergency and decree powers to the President, not the Chancellor.",
+          "Statement 2 is incorrect: Article 48 vested emergency powers in the President of the Republic, allowing him to suspend civil rights and rule by decree.",
+          "Since Statement 2 misidentifies the authority under Article 48 (President vs Chancellor), both cannot be correct.",
+          "Statement 1 is definitely correct as the Weimar Constitution was democratic and based on universal adult suffrage."
+        ]
+      },
+      {
+        id: 12,
+        topic: "Weimar Republic & Versailles",
+        type: "VVI",
+        q: "Under the Treaty of Versailles, which newly recreated country was given German territories including West Prussia and Posen (creating the 'Polish Corridor')?",
+        options: [
+          "Czechoslovakia",
+          "Poland",
+          "Lithuania",
+          "Denmark"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Czechoslovakia was created from the breakup of Austria-Hungary and later lost the Sudetenland to Germany in 1938.",
+          "Correct! Poland was recreated after WWI and received German territories to give it access to the Baltic Sea, separating East Prussia from the rest of Germany.",
+          "Lithuania received the small northern territory of Memel from Germany, not West Prussia and Posen.",
+          "Denmark received northern Schleswig following a plebiscite under the Treaty of Versailles."
+        ]
+      },
+      {
+        id: 13,
+        topic: "Weimar Republic & Versailles",
+        type: "VVI",
+        q: "What happened to Alsace and Lorraine under the Treaty of Versailles?",
+        options: [
+          "They were placed under League of Nations administration",
+          "They were returned to France",
+          "They were ceded to Belgium",
+          "They remained demilitarised German provinces"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "The Saarland (not Alsace-Lorraine) was placed under League of Nations administration for 15 years.",
+          "Correct! Germany had annexed Alsace and Lorraine from France in 1871 and was forced to return them to France in 1919.",
+          "Belgium received small border districts (Eupen and Malmedy), not Alsace and Lorraine.",
+          "The Rhineland remained German territory but demilitarised, whereas Alsace and Lorraine were ceded outright to France."
+        ]
+      },
+      {
+        id: 14,
+        topic: "Weimar Republic & Versailles",
+        type: "HOTS",
+        q: "Assertion (A): The Weimar Republic was financially crippled right from its birth.\nReason (R): It had to carry the burden of war guilt and pay £6 billion in war reparations while Germany's gold reserves were depleted.",
+        options: [
+          "Both A and R are true, and R is the correct explanation of A",
+          "Both A and R are true, but R is not the correct explanation of A",
+          "A is true, but R is false",
+          "A is false, but R is true"
+        ],
+        correct: 0,
+        optionsInfo: [
+          "Correct! Germany had fought WWI largely on loans and had to pay reparations in gold, which depleted its reserves and crippled the Weimar economy.",
+          "R directly explains why the Republic was financially crippled from birth—the combination of war debts, gold payments, and £6 billion reparations.",
+          "Both statements are historically accurate.",
+          "The Weimar Republic indeed faced severe financial distress from 1919 onward."
+        ]
+      },
+      {
+        id: 15,
+        topic: "Weimar Republic & Versailles",
+        type: "VVI",
+        q: "Which of the following best describes the term 'Reichstag'?",
+        options: [
+          "The secret state police of Nazi Germany",
+          "The German Parliament elected under the Weimar Constitution",
+          "The paramilitary wing of the Weimar Socialists",
+          "The Allied commission overseeing war reparations"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "The secret state police of Nazi Germany was called the Gestapo (Geheime Staatspolizei).",
+          "Correct! The Reichstag was the national German Parliament to which deputies were elected on the basis of equal and universal votes.",
+          "The war veterans' paramilitary organisation used to crush the Spartacists was called the Free Corps (Freikorps).",
+          "The Allied Reparations Commission oversaw Germany's compensation payments, not the Reichstag."
+        ]
+      },
+      {
+        id: 16,
+        topic: "Weimar Republic & Versailles",
+        type: "HOTS",
+        q: "Why did the Allied Powers insist on demilitarising Germany under the Treaty of Versailles?",
+        options: [
+          "To help the Weimar Republic save money for social welfare",
+          "To weaken Germany's military power and prevent future aggression",
+          "To allow the Spartacist League to take over Berlin peacefully",
+          "To transfer German soldiers into the French colonial army"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "The Allies were motivated by security and punitive deterrence, not by helping Weimar finance social welfare.",
+          "Correct! The Allied Powers demilitarised Germany (restricting its army, navy, and banning an air force) specifically to weaken its military capacity.",
+          "The Allied Powers strongly opposed Bolshevism and communist uprisings like the Spartacist League.",
+          "German troops were disbanded/reduced, not integrated into the French colonial forces."
+        ]
+      },
+      {
+        id: 17,
+        topic: "Weimar Republic & Versailles",
+        type: "VVI",
+        q: "Which country's entry into the First World War in 1917 decisively strengthened the Allies and led to Germany's defeat in November 1918?",
+        options: [
+          "Japan",
+          "Italy",
+          "United States of America",
+          "Soviet Union"
+        ],
+        correct: 2,
+        optionsInfo: [
+          "Japan entered WWI on the Allied side in August 1914 to seize German Pacific territories, not in 1917.",
+          "Italy joined the Allies in 1915, two years before the decisive 1917 turning point.",
+          "Correct! The Allies, strengthened by the US entry in 1917, won the war, defeating Germany and the Central Powers in November 1918.",
+          "Russia (later Soviet Union) actually withdrew from WWI after the 1917 Bolshevik Revolution via the Treaty of Brest-Litovsk."
+        ]
+      },
+
+      // --- TOPIC 2: POLITICAL RADICALISM & ECONOMIC CRISES (Q18 - Q34) ---
+      {
+        id: 18,
+        topic: "Political Radicalism & Crises",
+        type: "VVI",
+        q: "The birth of the Weimar Republic coincided with the revolutionary uprising of which radical group modelled on the Bolshevik Revolution in Russia?",
+        options: [
+          "The Free Corps",
+          "The Spartacist League",
+          "The Storm Troopers (SA)",
+          "The German Workers' Party"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "The Free Corps (Freikorps) was a right-wing war veterans' organisation used by the Weimar government to crush the uprising, not the group that led it.",
+          "Correct! The Spartacist League demanded Soviet-style governance in Berlin; after being crushed, they founded the Communist Party of Germany.",
+          "The Storm Troopers (SA) were the paramilitary wing of the Nazi Party formed later in the early 1920s.",
+          "The German Workers' Party was a small nationalist group in Munich that Hitler joined in 1919 and renamed the Nazi Party."
+        ]
+      },
+      {
+        id: 19,
+        topic: "Political Radicalism & Crises",
+        type: "HOTS",
+        q: "How did the crushing of the Spartacist uprising affect left-wing politics in Weimar Germany during the 1920s and early 1930s?",
+        options: [
+          "Communists and Socialists united into a single unstoppable coalition",
+          "Communists and Socialists became irreconcilable enemies and could not unite against Hitler",
+          "The Weimar Republic outlawed the Social Democratic Party permanently",
+          "The Free Corps merged with the Communist Party of Germany"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Far from uniting, the violent suppression by the Social Democrat-led government created deep bitterness between the two left-wing parties.",
+          "Correct! The Spartacists founded the Communist Party of Germany; Communists and Socialists thereafter became irreconcilable enemies and failed to make common cause against Hitler.",
+          "The Social Democratic Party (SPD) remained one of the main pillars of the Weimar Republic until Hitler banned it in 1933.",
+          "The Free Corps were staunchly anti-communist war veterans who violently opposed the Spartacists."
+        ]
+      },
+      {
+        id: 20,
+        topic: "Political Radicalism & Crises",
+        type: "VVI",
+        q: "In 1923, when Germany refused to pay war reparations, France occupied which leading German industrial area to claim its coal?",
+        options: [
+          "Bavaria",
+          "Ruhr",
+          "Saar",
+          "Saxony"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Bavaria is a largely agricultural and cultural region in southern Germany, not the coal-rich industrial belt occupied by France in 1923.",
+          "Correct! France occupied the Ruhr, Germany's leading industrial and coal-mining region, prompting Germany to retaliate with passive resistance and reckless currency printing.",
+          "The Saar region was placed under League of Nations administration by the Treaty of Versailles in 1919, rather than occupied by France in 1923.",
+          "Saxony experienced communist-socialist unrest in 1923, but it was not occupied by French forces to extract coal."
+        ]
+      },
+      {
+        id: 21,
+        topic: "Political Radicalism & Crises",
+        type: "HOTS",
+        q: "What caused the hyperinflation crisis of 1923 in Germany, where citizens carried cartloads of currency notes to buy a loaf of bread?",
+        options: [
+          "The Wall Street Exchange crashed and American banks recalled loans",
+          "Germany printed paper currency recklessly to retaliate against the French occupation of the Ruhr",
+          "The Weimar government abolished all taxes and switched to the gold standard",
+          "Hitler's Enabling Act froze all bank accounts and devalued the Mark"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "The Wall Street Crash happened in October 1929 and triggered the Great Depression (deflation and unemployment), not the 1923 hyperinflation.",
+          "Correct! Germany responded to the French occupation of the Ruhr with passive resistance and printed paper currency recklessly, causing the Mark's value to collapse and prices to soar.",
+          "Switching to the gold standard stabilises currency rather than causing hyperinflation; Germany's problem was unbacked paper money printing.",
+          "The Enabling Act was passed in March 1933, ten years after the 1923 hyperinflation crisis."
+        ]
+      },
+      {
+        id: 22,
+        topic: "Political Radicalism & Crises",
+        type: "VVI",
+        q: "Which American intervention bailed Germany out of the 1923 hyperinflation crisis by reworking the terms of war reparations?",
+        options: [
+          "The Marshall Plan",
+          "The Dawes Plan",
+          "The New Deal",
+          "The Tripartite Pact"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "The Marshall Plan was the US economic recovery programme for Western Europe after World War II (1948), not after WWI.",
+          "Correct! The Americans intervened and bailed Germany out by introducing the Dawes Plan (1924), which reworked reparation terms to ease the financial burden.",
+          "The New Deal was Franklin D. Roosevelt's domestic programme in the 1930s to lift the USA out of the Great Depression.",
+          "The Tripartite Pact (1940) was a military alliance signed between Germany, Italy, and Japan."
+        ]
+      },
+      {
+        id: 23,
+        topic: "Political Radicalism & Crises",
+        type: "HOTS",
+        q: "Why is the period of relative stability in Germany between 1924 and 1928 described as being 'built on sand'?",
+        options: [
+          "It relied entirely on agricultural exports to the Soviet Union",
+          "German investments and industrial recovery were totally dependent on short-term loans from the USA",
+          "The Nazi Party already controlled 60% of the seats in the Reichstag",
+          "Hyperinflation continued at 500% per month throughout those four years"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Germany's 1924–1928 recovery was industrial and financial, driven by Western capital rather than Soviet agricultural trade.",
+          "Correct! German recovery depended completely on short-term American loans, which were abruptly withdrawn when the Wall Street Exchange crashed in 1929.",
+          "In 1928, the Nazi Party won only 2.6% of votes in the Reichstag elections; it was still a fringe party.",
+          "Hyperinflation ended in late 1923–1924 with currency reform and the Dawes Plan, giving way to brief stability until 1929."
+        ]
+      },
+      {
+        id: 24,
+        topic: "Political Radicalism & Crises",
+        type: "VVI",
+        q: "What triggered the Great Economic Depression in 1929, during which 13 million shares were sold on a single day (24 October)?",
+        options: [
+          "The collapse of the Bank of England",
+          "The crash of the Wall Street Exchange in the USA",
+          "The French invasion of Berlin",
+          "The signing of the Treaty of Versailles"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Britain's financial crisis worsened later in 1931 as a consequence of the global depression, not as its 1929 trigger.",
+          "Correct! Fearing a fall in prices, people made frantic efforts to sell their shares; on 24 October 1929, 13 million shares were sold, crashing the Wall Street Exchange.",
+          "France occupied the Ruhr in 1923, not Berlin, and that did not trigger the 1929 global Great Depression.",
+          "The Treaty of Versailles was signed in 1919, a full decade before the 1929 Wall Street Crash."
+        ]
+      },
+      {
+        id: 25,
+        topic: "Political Radicalism & Crises",
+        type: "VVI",
+        q: "By 1932, during the Great Economic Depression, industrial production in Germany was reduced to what percentage of its 1929 level?",
+        options: [
+          "80 per cent",
+          "60 per cent",
+          "40 per cent",
+          "15 per cent"
+        ],
+        correct: 2,
+        optionsInfo: [
+          "An 80% output level would imply only a mild 20% drop, whereas Germany was the worst hit by the Depression.",
+          "60% is incorrect; Germany's industrial contraction was much steeper (a 60% drop, leaving output at 40%).",
+          "Correct! By 1932, German industrial production was reduced to 40% of the 1929 level, and the number of unemployed touched an unprecedented 6 million.",
+          "15% overstates the collapse; output fell to 40% of the 1929 baseline."
+        ]
+      },
+      {
+        id: 26,
+        topic: "Political Radicalism & Crises",
+        type: "HOTS",
+        q: "What does the term 'proletarianisation' mean in the context of the Great Depression in Germany?",
+        options: [
+          "The rapid enrichment of small businessmen and landlords",
+          "The anxiety of the middle classes of being reduced to the ranks of the working class or the unemployed",
+          "The mass migration of German industrial workers to rural farms",
+          "The nationalisation of all private banks by the Weimar Republic"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Small businessmen, self-employed people, and retailers saw their businesses ruined rather than enriched.",
+          "Correct! Salaried employees, pensioners, and small businessmen saw their savings diminish as currency lost value and feared 'proletarianisation'—falling into the working class or unemployment.",
+          "Workers did not migrate en masse to farms; instead, unemployed men walked city streets with placards reading 'Willing to do any work'.",
+          "The Weimar Republic did not nationalise all private banks; rather, banks collapsed during the crisis."
+        ]
+      },
+      {
+        id: 27,
+        topic: "Political Radicalism & Crises",
+        type: "VVI",
+        q: "Approximately how many people were unemployed in Germany at the peak of the Great Economic Depression in 1932?",
+        options: [
+          "1.5 million",
+          "3 million",
+          "6 million",
+          "12 million"
+        ],
+        correct: 2,
+        optionsInfo: [
+          "1.5 million was closer to pre-Depression unemployment levels before the 1929 crash.",
+          "3 million was roughly the number of unemployed in 1930, before the crisis peaked in 1932.",
+          "Correct! The number of unemployed touched an unprecedented 6 million in Germany, leading youths to play cards, sit at street corners, or turn to criminal activities.",
+          "12 million was closer to the US unemployment figure at the height of the Depression, whereas Germany's figure reached 6 million."
+        ]
+      },
+      {
+        id: 28,
+        topic: "Political Radicalism & Crises",
+        type: "HOTS",
+        q: "During the 1923 hyperinflation, how did the value of the German Mark against the US Dollar change between April and December 1923?",
+        options: [
+          "It strengthened from 98,000 Marks to 24,000 Marks per Dollar",
+          "It fell from 24,000 Marks in April to 98,860,000 Marks in December",
+          "It remained pegged at a fixed rate of 4.2 Marks per Dollar",
+          "It fell from 100 Marks in April to 5,000 Marks in December"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "The Mark collapsed catastrophically rather than strengthening against the US Dollar.",
+          "Correct! In April 1923, 1 US dollar equalled 24,000 marks; by July it was 353,000; by August 4,621,000; and by December it reached 98,860,000 marks.",
+          "4.2 Marks per Dollar was the pre-WWI gold standard exchange rate, which collapsed after the war.",
+          "A rise from 100 to 5,000 would be ordinary inflation, nowhere near the astronomical millions seen in 1923 hyperinflation."
+        ]
+      },
+      {
+        id: 29,
+        topic: "Political Radicalism & Crises",
+        type: "HOTS",
+        q: "How did the Great Depression affect the organised working class in Germany compared to the peasantry?",
+        options: [
+          "Only peasants suffered while factory workers received double wages",
+          "The organised workers managed to keep their heads above water, though unemployment weakened their bargaining power, while peasants were affected by a sharp fall in agricultural prices",
+          "Big business flourished while both workers and peasants gained full employment",
+          "Women filled all factory jobs and were unaffected by the economic collapse"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Factory workers suffered massive layoffs and wage cuts; they certainly did not receive double wages.",
+          "Correct! Only organised workers could somewhat keep their heads above water, though unemployment weakened their bargaining power; big business was in crisis, and the large mass of peasantry suffered from a sharp fall in agricultural prices.",
+          "Big business was in deep crisis, and unemployment hit 6 million.",
+          "Women too were filled with deep despair as they were unable to fill their children's stomachs."
+        ]
+      },
+      {
+        id: 30,
+        topic: "Political Radicalism & Crises",
+        type: "VVI",
+        q: "Between 1929 and 1932, the national income of the United States fell by:",
+        options: [
+          "One-fourth",
+          "One-third",
+          "Half",
+          "Three-fourths"
+        ],
+        correct: 2,
+        optionsInfo: [
+          "One-fourth understates the severity of the US contraction following the Wall Street Crash.",
+          "One-third is inaccurate; the decline in national income was even steeper.",
+          "Correct! Over the three years from 1929 to 1932, the national income of the USA fell by half, factories shut down, exports fell, and farmers were badly hit.",
+          "Three-fourths exaggerates the drop; US national income fell by 50% (half)."
+        ]
+      },
+      {
+        id: 31,
+        topic: "Political Radicalism & Crises",
+        type: "HOTS",
+        q: "Arrange the following events in correct chronological order:\n1. Wall Street Exchange Crash\n2. French occupation of the Ruhr\n3. Spartacist uprising in Berlin\n4. Introduction of the Dawes Plan",
+        options: [
+          "3, 2, 4, 1",
+          "2, 3, 1, 4",
+          "3, 4, 2, 1",
+          "1, 2, 3, 4"
+        ],
+        correct: 0,
+        optionsInfo: [
+          "Correct! Spartacist uprising (1919) -> French occupation of the Ruhr (1923) -> Dawes Plan (1924) -> Wall Street Exchange Crash (1929).",
+          "The Spartacist uprising coincided with the birth of the Weimar Republic in 1919, four years before the 1923 Ruhr occupation.",
+          "The Dawes Plan (1924) was introduced to resolve the 1923 Ruhr/hyperinflation crisis, so it came after 2, not before.",
+          "The Wall Street Crash happened last in this sequence (1929), not first."
+        ]
+      },
+      {
+        id: 32,
+        topic: "Political Radicalism & Crises",
+        type: "VVI",
+        q: "What did the placards hung around the necks of unemployed German men on the streets during the Great Depression commonly read?",
+        options: [
+          "'Down with the Treaty of Versailles'",
+          "'Willing to do any work'",
+          "'Long live the Weimar Republic'",
+          "'Bread, Peace, and Land'"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "While anger at Versailles was widespread in politics, jobless men on city streets wore placards specifically begging for employment.",
+          "Correct! On the streets of Germany, unemployed men stood with placards around their necks saying, 'Willing to do any work.'",
+          "Public faith in the Weimar Republic had collapsed during the Depression rather than inspiring loyal placards.",
+          "'Peace, Land, and Bread' was Lenin's famous Bolshevik slogan in the 1917 Russian Revolution."
+        ]
+      },
+      {
+        id: 33,
+        topic: "Political Radicalism & Crises",
+        type: "HOTS",
+        q: "Who among the following suffered most severely from the 1923 hyperinflation in terms of wiping out lifelong savings?",
+        options: [
+          "Foreign lenders holding US Dollars",
+          "Salaried employees and pensioners living on fixed incomes",
+          "Speculators holding physical gold and coal mines",
+          "Allied governments collecting reparations in kind"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Holders of strong foreign currencies like the US Dollar gained enormous purchasing power in Germany during hyperinflation.",
+          "Correct! Salaried employees and pensioners saw their fixed-Mark savings and pensions become virtually worthless as prices skyrocketed.",
+          "Owners of physical assets like gold, land, or industrial goods retained real value unlike paper currency.",
+          "Allied powers demanding reparations in gold or coal (like in the Ruhr) were insulated from the falling Mark."
+        ]
+      },
+      {
+        id: 34,
+        topic: "Political Radicalism & Crises",
+        type: "VVI",
+        q: "The Spartacists later went on to establish which political party in Germany?",
+        options: [
+          "Social Democratic Party of Germany (SPD)",
+          "National Socialist German Workers' Party (NSDAP)",
+          "Communist Party of Germany (KPD)",
+          "Catholic Centre Party"
+        ],
+        correct: 2,
+        optionsInfo: [
+          "The Social Democratic Party (SPD) was the moderate socialist party that led the Weimar Republic and crushed the Spartacist uprising.",
+          "The NSDAP (Nazi Party) was a far-right nationalist party led by Hitler, diametrically opposed to the Spartacists.",
+          "Correct! After their 1919 uprising was crushed by the Free Corps, the Spartacists founded the Communist Party of Germany (KPD).",
+          "The Catholic Centre Party was a moderate democratic party that supported the Weimar coalition."
+        ]
+      },
+
+      // --- TOPIC 3: HITLER'S RISE, DESTRUCTION OF DEMOCRACY & RECONSTRUCTION (Q35 - Q54) ---
+      {
+        id: 35,
+        topic: "Hitler's Rise & Dictatorship",
+        type: "VVI",
+        q: "In 1919, Adolf Hitler joined a small political group and later renamed it the National Socialist German Workers' Party. What was its original name?",
+        options: [
+          "German Nationalist League",
+          "German Workers' Party",
+          "Bavarian People's Front",
+          "Free Corps Party"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "There was no 'German Nationalist League' that became the Nazi Party; the main conservative party was the DNVP.",
+          "Correct! Hitler joined the small German Workers' Party in 1919, took over the organisation, and renamed it the National Socialist German Workers' Party (Nazi Party).",
+          "The Bavarian People's Party was a separate regional Catholic party in Bavaria.",
+          "The Free Corps were paramilitary veteran units, not the political party Hitler joined in 1919."
+        ]
+      },
+      {
+        id: 36,
+        topic: "Hitler's Rise & Dictatorship",
+        type: "VVI",
+        q: "What happened to Hitler when he planned to seize control of Bavaria, march to Berlin, and capture power in 1923?",
+        options: [
+          "He succeeded in becoming Chancellor immediately",
+          "He failed, was arrested, tried for treason, and later released",
+          "He fled to Austria and never returned to Germany",
+          "He was appointed President by the Bavarian Parliament"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Hitler did not become Chancellor until 30 January 1933—ten years after his failed 1923 coup attempt.",
+          "Correct! His 1923 attempt (the Beer Hall Putsch) failed; he was arrested, tried for treason, and later released.",
+          "Hitler remained in Germany, served a brief prison sentence in Landsberg, and rebuilt the Nazi Party for electoral politics.",
+          "Hitler was never appointed President by Bavaria; he became Chancellor of Germany in 1933."
+        ]
+      },
+      {
+        id: 37,
+        topic: "Hitler's Rise & Dictatorship",
+        type: "HOTS",
+        q: "How did the Nazi Party's vote share in the Reichstag elections change between 1928 and 1932?",
+        options: [
+          "From 2.6% in 1928 to 37% in 1932",
+          "From 15% in 1928 to 52% in 1932",
+          "From 37% in 1928 to 2.6% in 1932",
+          "From 5% in 1928 to 12% in 1932"
+        ],
+        correct: 0,
+        optionsInfo: [
+          "Correct! In 1928, the Nazi Party got no more than 2.6% of votes in the Reichstag; by 1932, amid the Great Depression, it had become the largest party with 37% votes.",
+          "The Nazi Party never won an outright 52% majority in a free Reichstag election; 37% in July 1932 made it the single largest party.",
+          "This reverses the trajectory—Nazism was marginal during the 1924–1928 stability and surged during the Great Depression.",
+          "12% vastly underestimates the Nazi electoral surge to 37% in 1932."
+        ]
+      },
+      {
+        id: 38,
+        topic: "Hitler's Rise & Dictatorship",
+        type: "VVI",
+        q: "Who offered the Chancellorship—the highest position in the cabinet of ministers—to Adolf Hitler on 30 January 1933?",
+        options: [
+          "Emperor Wilhelm II",
+          "President Hindenburg",
+          "Hjalmar Schacht",
+          "Heinrich Himmler"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Emperor Wilhelm II had abdicated in November 1918 and was living in exile in the Netherlands.",
+          "Correct! On 30 January 1933, President Paul von Hindenburg offered the Chancellorship to Hitler.",
+          "Hjalmar Schacht was the economist later appointed by Hitler to oversee Germany's economic recovery.",
+          "Heinrich Himmler was the head of the SS, a top Nazi subordinate to Hitler."
+        ]
+      },
+      {
+        id: 39,
+        topic: "Hitler's Rise & Dictatorship",
+        type: "VVI",
+        q: "Which decree, issued on 28 February 1933 after a mysterious fire in the German Parliament building, indefinitely suspended civic rights like freedom of speech, press, and assembly?",
+        options: [
+          "The Enabling Act",
+          "The Fire Decree",
+          "The Nuremberg Law",
+          "The Weimar Emergency Act"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "The Enabling Act was passed later on 3 March 1933 to give Hitler dictatorial decree powers and sideline Parliament.",
+          "Correct! The Fire Decree of 28 February 1933 indefinitely suspended civic rights guaranteed by the Weimar Constitution, and Hitler turned on his arch-enemies, the Communists.",
+          "The Nuremberg Laws were passed in September 1935 to strip Jews of German citizenship and ban mixed marriages.",
+          "Emergency decrees under Weimar used Article 48; the specific 28 February 1933 decree is known as the Fire Decree."
+        ]
+      },
+      {
+        id: 40,
+        topic: "Hitler's Rise & Dictatorship",
+        type: "VVI",
+        q: "Which famous Act passed on 3 March 1933 formally established dictatorship in Germany by giving Hitler all powers to sideline Parliament and rule by decree?",
+        options: [
+          "The Fire Decree",
+          "The Enabling Act",
+          "The Dawes Act",
+          "The Tripartite Act"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "The Fire Decree (28 Feb 1933) suspended civic rights, whereas the 3 March 1933 law transferred legislative power to Hitler.",
+          "Correct! The Enabling Act of 3 March 1933 established dictatorship, sidelined Parliament, and led to the banning of all political parties and trade unions except the Nazi Party.",
+          "The Dawes Plan (1924) was an international reparation agreement, not a German dictatorship law.",
+          "The Tripartite Pact (1940) was a WWII military alliance between Germany, Italy, and Japan."
+        ]
+      },
+      {
+        id: 41,
+        topic: "Hitler's Rise & Dictatorship",
+        type: "HOTS",
+        q: "How did the Nazi state acquire its reputation as the most dreaded criminal state through its security apparatus?",
+        options: [
+          "It allowed independent judges to overturn Gestapo arrests",
+          "Extra-constitutional powers were given to newly created forces like the Gestapo, SS, criminal police, and Security Service (SD), who could detain people in concentration camps without legal procedures",
+          "It abolished all police forces and relied solely on the regular army",
+          "It required a unanimous Reichstag vote before arresting any citizen"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Independent judicial oversight was destroyed; people could be arrested and sent to concentration camps at will without trial.",
+          "Correct! Alongside the regular police in green uniform and SA, the Nazis created the Gestapo (secret state police), SS (protection squads), criminal police, and SD with extra-constitutional powers to detain, torture, and deport without legal recourse.",
+          "The Nazis expanded rather than abolished police and surveillance forces to control and order society.",
+          "The Reichstag had been sidelined by the Enabling Act; no parliamentary approval was needed for arrests."
+        ]
+      },
+      {
+        id: 42,
+        topic: "Hitler's Rise & Dictatorship",
+        type: "VVI",
+        q: "Whom did Hitler assign the responsibility of economic recovery, aiming at full production and full employment through a state-funded work-creation programme?",
+        options: [
+          "Joseph Goebbels",
+          "Hjalmar Schacht",
+          "Hermann Goering",
+          "Robert Ley"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Joseph Goebbels was the Minister of Propaganda, responsible for controlling media, films, and public opinion.",
+          "Correct! Economist Hjalmar Schacht led the economic recovery, producing the famous German superhighways (Autobahn) and the people's car, the Volkswagen.",
+          "Hermann Goering later took charge of the Four-Year Plan for rearmament after Schacht warned against deficit financing.",
+          "Robert Ley headed the German Labour Front, which replaced banned independent trade unions."
+        ]
+      },
+      {
+        id: 43,
+        topic: "Hitler's Rise & Dictatorship",
+        type: "HOTS",
+        q: "Why did economist Hjalmar Schacht eventually have to leave his post under Hitler?",
+        options: [
+          "He opposed the construction of German superhighways and the Volkswagen",
+          "He advised Hitler against investing hugely in rearmament because the state still ran on deficit financing",
+          "He wanted Germany to rejoin the League of Nations in 1938",
+          "He secretly funded the Communist Party of Germany"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Schacht himself championed the state-funded work-creation programme that built the superhighways and Volkswagen.",
+          "Correct! Schacht warned Hitler against massive rearmament spending since the German state was running on deficit financing; Hitler, who saw war as the way out of economic crisis, rejected cautious counsel and Schacht had to leave.",
+          "Rejoining the League of Nations was never Schacht's proposal; his disagreement was strictly over unsustainable military deficit spending.",
+          "Schacht was a conservative nationalist banker, not a communist sympathiser."
+        ]
+      },
+      {
+        id: 44,
+        topic: "Hitler's Rise & Dictatorship",
+        type: "VVI",
+        q: "Under which slogan did Hitler integrate Austria and Germany in 1938?",
+        options: [
+          "'Blood and Iron'",
+          "'One people, One empire, and One leader'",
+          "'Peace, Bread, and Land'",
+          "'Liberty, Equality, Fraternity'"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "'Blood and Iron' was Otto von Bismarck's famous 19th-century slogan for German unification under Prussia.",
+          "Correct! Hitler integrated Austria and Germany in 1938 under the slogan 'One people, One empire, and One leader' (Ein Volk, Ein Reich, Ein Führer).",
+          "'Peace, Bread, and Land' was Lenin's 1917 Bolshevik slogan.",
+          "'Liberty, Equality, Fraternity' was the slogan of the 1789 French Revolution."
+        ]
+      },
+      {
+        id: 45,
+        topic: "Hitler's Rise & Dictatorship",
+        type: "HOTS",
+        q: "Arrange Hitler's early foreign policy steps in chronological order:\n1. Reoccupied the Rhineland\n2. Pulled Germany out of the League of Nations\n3. Integrated Austria and Germany\n4. Invaded Poland",
+        options: [
+          "2, 1, 3, 4",
+          "1, 2, 3, 4",
+          "2, 3, 1, 4",
+          "3, 1, 2, 4"
+        ],
+        correct: 0,
+        optionsInfo: [
+          "Correct! Pulled out of League of Nations (1933) -> Reoccupied Rhineland (1936) -> Integrated Austria (1938) -> Invaded Poland (September 1939).",
+          "Germany left the League of Nations in 1933, three years before reoccupying the Rhineland in 1936.",
+          "Rhineland was reoccupied in 1936, before the 1938 integration of Austria.",
+          "Austria was integrated in 1938, after both the 1933 League exit and 1936 Rhineland reoccupation."
+        ]
+      },
+      {
+        id: 46,
+        topic: "Hitler's Rise & Dictatorship",
+        type: "HOTS",
+        q: "Why did England offer unspoken support to Hitler's early aggressive foreign policy moves, such as taking the Sudetenland from Czechoslovakia?",
+        options: [
+          "England had signed a secret military alliance with Nazi Germany in 1933",
+          "England considered the Treaty of Versailles verdict too harsh on Germany",
+          "England wanted Germany to annex France and Belgium immediately",
+          "Czechoslovakia had declared war on Britain in 1938"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "England had no military alliance with Nazi Germany; in fact, England declared war on Germany in September 1939 when Poland was invaded.",
+          "Correct! In taking Sudetenland and earlier moves, Hitler had the unspoken support (appeasement) of England, which had come to view the Versailles Treaty verdict as too harsh.",
+          "Britain strongly opposed German expansion into Western Europe (France and Belgium).",
+          "Czechoslovakia was a democratic ally betrayed at Munich, not an aggressor against Britain."
+        ]
+      },
+      {
+        id: 47,
+        topic: "Hitler's Rise & Dictatorship",
+        type: "VVI",
+        q: "Which event in September 1939 directly started the Second World War with France and England?",
+        options: [
+          "Germany's annexation of Austria",
+          "Germany's invasion of Poland",
+          "The bombing of Pearl Harbor",
+          "The signing of the Tripartite Pact"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "The annexation of Austria occurred in March 1938 and was met without war by Britain and France.",
+          "Correct! In September 1939, Germany invaded Poland, which triggered war with France and England.",
+          "Japan bombed Pearl Harbor in December 1941, bringing the USA into an already ongoing WWII.",
+          "The Tripartite Pact was signed in September 1940, one year after WWII had begun."
+        ]
+      },
+      {
+        id: 48,
+        topic: "Hitler's Rise & Dictatorship",
+        type: "VVI",
+        q: "Which three countries signed the Tripartite Pact in September 1940, strengthening Hitler's claim to international power?",
+        options: [
+          "Germany, Soviet Union, and Italy",
+          "Germany, Italy, and Japan",
+          "Germany, Austria, and Spain",
+          "Germany, Japan, and Hungary"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Germany and the Soviet Union had signed a Non-Aggression Pact in 1939, not the 1940 Tripartite Pact; Germany invaded the USSR in June 1941.",
+          "Correct! In September 1940, a Tripartite Pact was signed between Germany, Italy, and Japan.",
+          "Austria was already annexed into Germany in 1938, and Spain remained officially neutral during WWII.",
+          "Hungary joined the Axis later, but the core Tripartite Pact signatories in September 1940 were Germany, Italy, and Japan."
+        ]
+      },
+      {
+        id: 49,
+        topic: "Hitler's Rise & Dictatorship",
+        type: "HOTS",
+        q: "Why is Hitler's attack on the Soviet Union in June 1941 considered a 'historic blunder'?",
+        options: [
+          "It forced Japan to withdraw from the Tripartite Pact",
+          "It exposed the German western front to British aerial bombing and the eastern front to the powerful Soviet armies",
+          "It led to the immediate impeachment of Hitler by the Reichstag",
+          "It caused Italy to declare war on Germany in 1941"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Japan remained allied with Germany and attacked US forces at Pearl Harbor in December 1941.",
+          "Correct! By attacking the USSR in June 1941 while still fighting Britain, Hitler created a devastating two-front war; the Soviet Red Army inflicted a crushing defeat on Germany at Stalingrad and hounded retreating German soldiers back to Berlin.",
+          "The Reichstag had no power to impeach Hitler under his totalitarian dictatorship.",
+          "Italy remained Germany's ally until 1943, when Mussolini was overthrown."
+        ]
+      },
+      {
+        id: 50,
+        topic: "Hitler's Rise & Dictatorship",
+        type: "VVI",
+        q: "What forced the United States—which had initially resisted involvement in WWII—to enter the war?",
+        options: [
+          "Germany's invasion of France in 1940",
+          "Japan's bombing of the US naval base at Pearl Harbor",
+          "The Soviet Union's victory at Stalingrad",
+          "The passing of the Nuremberg Laws"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "The fall of France in 1940 prompted US material aid to Britain, but not direct US military entry.",
+          "Correct! Japan expanded its power in the East, occupied French Indo-China, planned attacks on US naval bases in the Pacific, and bombed Pearl Harbor, pulling the USA into WWII.",
+          "The Battle of Stalingrad (1942–1943) occurred after the USA had already entered the war in December 1941.",
+          "The Nuremberg Laws were passed in 1935, four years before WWII even began."
+        ]
+      },
+      {
+        id: 51,
+        topic: "Hitler's Rise & Dictatorship",
+        type: "VVI",
+        q: "What was the 'Volkswagen' created under Hjalmar Schacht's state-funded work-creation programme?",
+        options: [
+          "A network of German military airfields",
+          "The 'people's car'",
+          "A state-owned steel conglomerate in the Ruhr",
+          "The youth labour camp system"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Military airfields were built under secret rearmament, not named Volkswagen.",
+          "Correct! Schacht's work-creation programme produced both the famous German superhighways and the 'people's car', the Volkswagen.",
+          "Steel conglomerates like Krupp were private industrial giants, not Volkswagen.",
+          "Youth labour service was called the Reich Labour Service (RAD), not Volkswagen."
+        ]
+      },
+      {
+        id: 52,
+        topic: "Hitler's Rise & Dictatorship",
+        type: "HOTS",
+        q: "What was the outcome of the International Military Tribunal set up at Nuremberg after Germany's defeat in May 1945?",
+        options: [
+          "All German citizens were sentenced to life imprisonment",
+          "It prosecuted Nazi war criminals for Crimes against Peace, War Crimes, and Crimes Against Humanity, sentencing 11 leading Nazis to death",
+          "It restored the Weimar Constitution under Kaiser Wilhelm II",
+          "It handed over all of Germany to Japan as compensation"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "The Tribunal targeted leading Nazi officials and war criminals, not every ordinary German citizen.",
+          "Correct! The Nuremberg Tribunal sentenced only 11 leading Nazis to death and many others to life imprisonment; the Allies avoided harsh retribution like after WWI to prevent another rise of extremism.",
+          "Germany was divided into Allied occupation zones, and the monarchy was never restored.",
+          "Japan itself was defeated by the Allies in August 1945 after the atomic bombings of Hiroshima and Nagasaki."
+        ]
+      },
+      {
+        id: 53,
+        topic: "Hitler's Rise & Dictatorship",
+        type: "HOTS",
+        q: "In Nazi propaganda, how was Adolf Hitler projected to desperate Germans during the Great Depression?",
+        options: [
+          "As a cautious bureaucrat who would preserve the Treaty of Versailles",
+          "As a messiah, a saviour, and someone who had arrived to deliver people from their distress",
+          "As a communist revolutionary aligned with Moscow",
+          "As a pacifist who opposed building an army"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Hitler explicitly promised to undo the injustice of the Versailles Treaty and restore German dignity.",
+          "Correct! Nazi propaganda skilfully projected Hitler as a messiah and saviour—an image that captured the imagination of people whose pride had been shattered.",
+          "Hitler was fiercely anti-communist and made the destruction of communism a central promise.",
+          "Hitler promised to build a strong nation and rearm Germany, never preaching pacifism."
+        ]
+      },
+      {
+        id: 54,
+        topic: "Hitler's Rise & Dictatorship",
+        type: "VVI",
+        q: "Which of the following cities were the targets of US atomic bombings in August 1945 that brought the Second World War to an end?",
+        options: [
+          "Tokyo and Osaka",
+          "Hiroshima and Nagasaki",
+          "Kyoto and Yokohama",
+          "Nagoya and Sapporo"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Tokyo suffered heavy conventional firebombing, not atomic bombing, and Osaka was not targeted with an atomic bomb.",
+          "Correct! The Second World War ended in 1945 with Hitler's defeat (May 1945) and the US dropping of atom bombs on Hiroshima and Nagasaki in Japan (August 1945).",
+          "Kyoto was spared from the atomic bomb list due to its cultural significance.",
+          "Neither Nagoya nor Sapporo was hit by an atomic bomb."
+        ]
+      },
+
+      // --- TOPIC 4: NAZI WORLDVIEW & THE RACIAL STATE (Q55 - Q72) ---
+      {
+        id: 55,
+        topic: "Nazi Worldview & Racial State",
+        type: "VVI",
+        q: "In the Nazi racial hierarchy, which group was placed at the absolute top and which group at the lowest rung?",
+        options: [
+          "Nordic German Aryans at the top; Jews at the lowest rung",
+          "Slavic peoples at the top; Gypsies at the lowest rung",
+          "Mediterranean Europeans at the top; Russians at the lowest rung",
+          "German Catholics at the top; Protestants at the lowest rung"
+        ],
+        correct: 0,
+        optionsInfo: [
+          "Correct! According to Nazi ideology, there was no equality, only a racial hierarchy: blond, blue-eyed Nordic German Aryans were at the top, while Jews were located at the lowest rung and viewed as an 'anti-race'.",
+          "Slavic peoples (Russians and Poles) were considered subhuman (Untermenschen) by the Nazis, not at the top.",
+          "Mediterranean and coloured peoples were placed in between depending on external features, not at the top.",
+          "Nazi racial hierarchy was biological/racial rather than a Catholic-vs-Protestant religious divide."
+        ]
+      },
+      {
+        id: 56,
+        topic: "Nazi Worldview & Racial State",
+        type: "HOTS",
+        q: "Hitler's racism borrowed ideas from which two thinkers, distorting their scientific and sociological concepts?",
+        options: [
+          "Karl Marx and Friedrich Engels",
+          "Charles Darwin and Herbert Spencer",
+          "Jean-Jacques Rousseau and Montesquieu",
+          "Adam Smith and John Maynard Keynes"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Marx and Engels were the founders of communism/scientific socialism, which Hitler fiercely opposed.",
+          "Correct! Hitler distorted Charles Darwin's theory of evolution/natural selection and Herbert Spencer's idea of 'survival of the fittest' to justify racial supremacy and the elimination of 'weak' races.",
+          "Rousseau and Montesquieu were Enlightenment thinkers associated with democracy, equality, and separation of powers.",
+          "Adam Smith and John Maynard Keynes were classical and modern economists, unrelated to Nazi racial theory."
+        ]
+      },
+      {
+        id: 57,
+        topic: "Nazi Worldview & Racial State",
+        type: "VVI",
+        q: "What did Hitler's geopolitical concept of 'Lebensraum' mean?",
+        options: [
+          "Total disarmament of European borders",
+          "Living space—acquiring new territories for German settlement and resources",
+          "Granting equal citizenship to all European minorities",
+          "Creating a neutral buffer zone along the Rhine River"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Lebensraum required military conquest and expansion, the opposite of disarmament.",
+          "Correct! 'Lebensraum' meant living space: Hitler believed new territories (especially in Eastern Europe) had to be acquired to enhance the mother country's area, settle Germans, and secure food and resources.",
+          "Nazi ideology explicitly rejected equal citizenship for minorities and sought racial homogeneity.",
+          "Hitler's aim was eastward expansion into Poland and the USSR, not a neutral Rhine zone."
+        ]
+      },
+      {
+        id: 58,
+        topic: "Nazi Worldview & Racial State",
+        type: "HOTS",
+        q: "Under the Nazi 'Euthanasia Programme', which group of Germans was condemned to death?",
+        options: [
+          "German soldiers who surrendered on the Western Front",
+          "Germans who were seen as mentally or physically 'unfit'",
+          "German industrialists who opposed the Dawes Plan",
+          "German women who had fewer than four children"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Surrendered soldiers were not targeted by the Euthanasia Programme (though deserters faced execution).",
+          "Correct! Even Germans considered impure or abnormal had no right to exist under Nazi ideology; under the Euthanasia Programme, Nazi officials (including physicians like Helmuth's father) condemned mentally or physically 'unfit' Germans to death.",
+          "Industrialists were generally co-opted into the Nazi war economy rather than subjected to the Euthanasia Programme.",
+          "Women with fewer children did not receive Honour Crosses, but they were not executed under the Euthanasia Programme."
+        ]
+      },
+      {
+        id: 59,
+        topic: "Nazi Worldview & Racial State",
+        type: "HOTS",
+        q: "How did Nazi hatred of Jews differ from traditional Christian hostility toward Jews?",
+        options: [
+          "Nazis allowed Jews to gain full citizenship if they converted to Christianity",
+          "Nazi hatred was based on pseudoscientific theories of race, meaning conversion was no solution—only total elimination",
+          "Traditional Christians wanted total elimination while Nazis only wanted religious conversion",
+          "Nazis targeted Jews solely because of their political support for the Weimar Republic"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Under Nazi racial laws, even Jews who had converted to Christianity—or had Jewish grandparents—were still classified and persecuted as Jews.",
+          "Correct! Traditional Christian hostility was religious (charging Jews as killers of Christ and usurers) and allowed conversion; Nazi antisemitism was racial/biological, so 'the Jewish problem' could only be solved through total elimination.",
+          "This reverses the two; Nazis pursued industrialised total elimination (the Final Solution).",
+          "While Nazis accused Jews of political conspiracies, their core ideology defined Jews biologically as an 'anti-race'."
+        ]
+      },
+      {
+        id: 60,
+        topic: "Nazi Worldview & Racial State",
+        type: "VVI",
+        q: "Which set of laws passed in September 1935 deprived Jews of German citizenship and forbade marriages between Jews and Germans?",
+        options: [
+          "The Enabling Laws",
+          "The Nuremberg Laws of Citizenship",
+          "The Weimar Civil Codes",
+          "The Berlin Racial Decrees"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "The Enabling Act (1933) gave Hitler dictatorial legislative power, rather than specifically codifying Jewish citizenship rules.",
+          "Correct! The Nuremberg Laws of September 1935 declared that only persons of German or related blood would be German citizens, forbade marriages and extramarital relations between Jews and Germans, and banned Jews from flying the national flag.",
+          "The Weimar Constitution granted equal citizenship to all Germans regardless of religion or race.",
+          "The 1935 racial laws were enacted at the Nazi Party rally in Nuremberg, hence named the Nuremberg Laws."
+        ]
+      },
+      {
+        id: 61,
+        topic: "Nazi Worldview & Racial State",
+        type: "HOTS",
+        q: "Compare the two phases of Nazi persecution of Jews: 1933–1938 and 1939–1945.",
+        options: [
+          "1933–1938 focused on gas chambers; 1939–1945 focused on encouraging emigration",
+          "1933–1938 terrorised, pauperised, and segregated Jews to compel them to leave; 1939–1945 concentrated them in ghettos and killed them in gas chambers in Poland",
+          "1933–1938 granted Jews limited autonomy; 1939–1945 only boycotted Jewish businesses",
+          "Both phases strictly confined Jews to ghettos inside France"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "This reverses the chronological escalation of Nazi anti-Jewish policy.",
+          "Correct! From 1933 to 1938, Nazis terrorised, pauperised, and segregated Jews (boycotts, job expulsion, property confiscation) to force emigration; from 1939 to 1945, they concentrated them in ghettos and murdered them in Polish gas chambers.",
+          "Jews were systematically stripped of rights from 1933 onward, never granted autonomy.",
+          "Major ghettos (like Warsaw and Lodz) and extermination camps (like Auschwitz, Treblinka) were established in German-occupied Poland, not France."
+        ]
+      },
+      {
+        id: 62,
+        topic: "Nazi Worldview & Racial State",
+        type: "VVI",
+        q: "Apart from Jews, which other groups were classified as 'racial inferiors' or 'subhuman' and persecuted by Nazi Germany?",
+        options: [
+          "Gypsies, Blacks living in Germany, Russians, and Poles",
+          "Swiss, Swedes, and Norwegians",
+          "Italians and Japanese allies",
+          "Bavarians and Prussians"
+        ],
+        correct: 0,
+        optionsInfo: [
+          "Correct! Many Gypsies (Sinti and Roma) and Blacks in Germany were considered racial 'inferiors' threatening Aryan purity, while Russians and Poles were deemed subhuman and forced into slave labour.",
+          "Scandinavians (Swedes, Norwegians) were actually regarded by Nazis as fellow Nordic/Aryan peoples.",
+          "Italy and Japan were Germany's Axis partners under the 1940 Tripartite Pact.",
+          "Bavarians and Prussians were regional German populations considered part of the German Volk."
+        ]
+      },
+      {
+        id: 63,
+        topic: "Nazi Worldview & Racial State",
+        type: "HOTS",
+        q: "What happened to Polish children who 'looked like Aryans' during the Nazi occupation of Poland ('The Racial Utopia')?",
+        options: [
+          "They were sent to Polish universities to become teachers",
+          "They were forcibly snatched from their mothers and examined by 'race experts'",
+          "They were immediately deported to the Soviet Union",
+          "They were exempted from all Nazi laws and left with their families"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Polish schools and intelligentsia were systematically destroyed so Poles would remain an uneducated slave labour force.",
+          "Correct! If they passed the 'race experts' test, they were raised in German families; if not, they were deposited in orphanages where most perished.",
+          "Germany was at war with the USSR (from 1941) and sought to Germanise, not deport to the USSR, Aryan-looking children.",
+          "Families were torn apart as part of the Nazi 'racial utopia' restructuring of occupied Poland."
+        ]
+      },
+      {
+        id: 64,
+        topic: "Nazi Worldview & Racial State",
+        type: "VVI",
+        q: "What was the 'General Government' created in occupied Poland by Nazi Germany?",
+        options: [
+          "A democratic Polish parliament restored by Britain",
+          "A territory in Poland used as the destination for all 'undesirables' of the empire, housing the largest ghettos and gas chambers",
+          "The headquarters of the League of Nations",
+          "An autonomous region reserved exclusively for German businessmen"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Poland was conquered and partitioned in 1939; no democratic Polish parliament existed under Nazi rule.",
+          "Correct! While north-western Poland was annexed to Germany, the rest—called the General Government—became the dumping ground for Poles, Jews, and all 'undesirables', and the site of major killing centres.",
+          "The League of Nations was headquartered in Geneva, Switzerland.",
+          "Ethnic Germans (Volksdeutsche) were resettled in annexed north-western Poland, not the General Government."
+        ]
+      },
+      {
+        id: 65,
+        topic: "Nazi Worldview & Racial State",
+        type: "HOTS",
+        q: "Why did Helmuth's father—a prominent Nazi physician—shoot himself in his office in May 1945?",
+        options: [
+          "He was bankrupt due to the 1923 hyperinflation",
+          "He feared the Allies would do to him and his family what the Nazis had done to the crippled and Jews",
+          "He had been expelled from the Nazi Party for opposing the Treaty of Versailles",
+          "He was ordered to do so by the Weimar President"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "The story takes place in spring 1945 at the end of WWII, not during 1923 hyperinflation.",
+          "Correct! As a Nazi physician involved in the Euthanasia Programme and Nazi crimes, he told his wife he feared Allied retribution ('Now the Allies will do to us what we did to the crippled and Jews') and committed suicide.",
+          "Every Nazi opposed the Treaty of Versailles; his fear was specifically of Allied war-crimes retribution.",
+          "The Weimar Presidency had long ceased to exist by 1945."
+        ]
+      },
+      {
+        id: 66,
+        topic: "Nazi Worldview & Racial State",
+        type: "VVI",
+        q: "Which of the following was NOT a provision of the Nuremberg Laws of Citizenship (September 1935)?",
+        options: [
+          "Only persons of German or related blood would henceforth be German citizens",
+          "Marriages between Jews and Germans were forbidden",
+          "Extramarital relations between Jews and Germans became a crime",
+          "Jews were required to serve in the German armed forces as frontline officers"
+        ],
+        correct: 3,
+        optionsInfo: [
+          "This was the core citizenship clause of the 1935 Nuremberg Laws.",
+          "Banning marriages between Jews and Germans was explicitly enacted by the Nuremberg Laws.",
+          "Criminalising extramarital relations ('racial defilement') between Jews and Germans was part of the Nuremberg Laws.",
+          "Correct! Jews were excluded from German citizenship, banned from government services, and certainly not made frontline officers in the armed forces."
+        ]
+      },
+      {
+        id: 67,
+        topic: "Nazi Worldview & Racial State",
+        type: "HOTS",
+        q: "How did Nazi Germany use occupied Poland as a laboratory for its 'racial utopia'?",
+        options: [
+          "By granting Poles equal land rights alongside German settlers",
+          "By annexing north-western Poland, forcing Poles to leave their homes for ethnic Germans, and murdering the Polish intelligentsia",
+          "By inviting Russian peasants to govern Warsaw",
+          "By turning Poland into a demilitarised agricultural cooperative"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Poles were stripped of their homes and properties without compensation.",
+          "Correct! Poles were herded like cattle into the General Government, ethnic Germans from occupied Europe were settled in their homes, and members of the Polish intelligentsia were murdered in large numbers to keep Poles intellectually servile.",
+          "Russians were also treated as subhuman (Untermenschen) and enemies by Nazi Germany.",
+          "Poland was brutally exploited for slave labour and Germanisation, not made an egalitarian cooperative."
+        ]
+      },
+      {
+        id: 68,
+        topic: "Nazi Worldview & Racial State",
+        type: "VVI",
+        q: "Which of the following was a notorious Nazi killing centre in Poland equipped with gas chambers?",
+        options: [
+          "Auschwitz",
+          "Weimar",
+          "Munich",
+          "Frankfurt"
+        ],
+        correct: 0,
+        optionsInfo: [
+          "Correct! Auschwitz (alongside Belzec, Sobibor, Treblinka, Majdanek, and Chelmno) was one of the major Nazi extermination centres in occupied Poland.",
+          "Weimar was a German cultural city (and birthplace of the 1919 Republic); Buchenwald concentration camp was nearby, but Auschwitz was the Polish extermination camp.",
+          "Munich was in southern Germany (near Dachau concentration camp), not a Polish killing centre.",
+          "Frankfurt was a major commercial city in western Germany, not an extermination camp in Poland."
+        ]
+      },
+      {
+        id: 69,
+        topic: "Nazi Worldview & Racial State",
+        type: "HOTS",
+        q: "Why did Hitler want to conquer Eastern Europe specifically when he spoke of 'Lebensraum'?",
+        options: [
+          "To establish friendly democratic republics along the Soviet border",
+          "To concentrate all Germans geographically in one place and ensure food supplies and living space for Germany",
+          "To escape the industrial pollution of the Ruhr valley",
+          "To hand over territory to Austria and Hungary"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Hitler despised democracy and aimed to destroy Slavic states, not build friendly republics.",
+          "Correct! Hitler wanted to ensure food supplies and living space for Germans by conquering Eastern Europe, intending to concentrate all Germans geographically in one enlarged Reich.",
+          "The Ruhr was prized for its heavy industry and coal, not abandoned due to pollution.",
+          "Austria was absorbed into Germany, and Eastern Europe was meant for German expansion."
+        ]
+      },
+      {
+        id: 70,
+        topic: "Nazi Worldview & Racial State",
+        type: "VVI",
+        q: "What happened to the Polish intelligentsia under Nazi occupation?",
+        options: [
+          "They were recruited to write Nazi textbooks",
+          "They were murdered in large numbers to keep the entire Polish people intellectually and spiritually servile",
+          "They were given high positions in the General Government",
+          "They were sent to Britain as diplomatic envoys"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Nazis banned Polish higher education and wanted Poles to remain uneducated labourers.",
+          "Correct! Members of the Polish intelligentsia (teachers, priests, writers, leaders) were murdered in large numbers so the Polish population could be kept servile.",
+          "The General Government was ruled ruthlessly by Nazi officials like Hans Frank, not Polish elites.",
+          "Poland was under total Nazi military occupation; its elites were targeted, not sent as envoys."
+        ]
+      },
+      {
+        id: 71,
+        topic: "Nazi Worldview & Racial State",
+        type: "HOTS",
+        q: "Which of the following measures occurred during the first phase (1933–1938) of anti-Jewish persecution in Germany?",
+        options: [
+          "Deportation to gas chambers in Auschwitz",
+          "Boycott of Jewish businesses, expulsion from government services, and forced selling of properties",
+          "Creation of the Warsaw Ghetto in Poland",
+          "Signing of the Tripartite Pact"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Mass gassing in Auschwitz occurred in the second phase (1939–1945) during WWII.",
+          "Correct! Between 1933 and 1938, the Nazis used legal bans, boycotts of Jewish businesses, expulsion from civil services, and forced confiscation/sale of properties to pauperise Jews and force them to emigrate.",
+          "The Warsaw Ghetto was created after Germany invaded Poland in 1939 (during the 1939–1945 phase).",
+          "The Tripartite Pact (1940) was a foreign military alliance, not a domestic anti-Jewish measure."
+        ]
+      },
+      {
+        id: 72,
+        topic: "Nazi Worldview & Racial State",
+        type: "VVI",
+        q: "How did Herbert Spencer's concept get misused in Nazi racial ideology?",
+        options: [
+          "The idea of 'survival of the fittest' was used to argue that the strongest race would survive and the weak ones would perish",
+          "The idea of 'social contract' was used to protect minority rights",
+          "The idea of 'laissez-faire' was used to abolish all German taxes",
+          "The idea of 'separation of powers' was used to strengthen the Reichstag"
+        ],
+        correct: 0,
+        optionsInfo: [
+          "Correct! Spencer's phrase 'survival of the fittest' was twisted by Nazis into a racial rule: the Aryan race was the finest and had to retain purity, become stronger, and dominate the world.",
+          "Social contract theory belongs to Hobbes, Locke, and Rousseau and supports citizen rights, which Nazism rejected.",
+          "Nazi Germany ran a state-directed war economy, not laissez-faire.",
+          "Separation of powers belongs to Montesquieu and was dismantled by Hitler's Enabling Act."
+        ]
+      },
+
+      // --- TOPIC 5: YOUTH & THE CULT OF MOTHERHOOD (Q73 - Q86) ---
+      {
+        id: 73,
+        topic: "Youth & Cult of Motherhood",
+        type: "VVI",
+        q: "What happened to German schools under the Nazi policy of 'cleansing' and 'purifying' education?",
+        options: [
+          "Jewish and German children were encouraged to study together to build unity",
+          "Teachers who were Jews or 'politically unreliable' were dismissed, and 'undesirable' children were thrown out of schools",
+          "All schools were closed permanently and replaced by factories",
+          "Textbooks were rewritten to promote international peace and democracy"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Children were strictly segregated; Germans and Jews could not sit together or play together.",
+          "Correct! Jewish or 'politically unreliable' teachers were dismissed, and 'undesirable children' (Jews, the physically handicapped, Gypsies) were expelled from schools and later taken to gas chambers in the 1940s.",
+          "Schools remained open for 'good German' children to undergo intense Nazi ideological schooling.",
+          "Textbooks were rewritten to justify Nazi racial science and promote hatred of Jews and worship of Hitler."
+        ]
+      },
+      {
+        id: 74,
+        topic: "Youth & Cult of Motherhood",
+        type: "VVI",
+        q: "At what ages did German boys enter the 'Jungvolk', 'Hitler Youth', and the 'Labour Service' respectively?",
+        options: [
+          "8, 12, and 16 years",
+          "10, 14, and 18 years",
+          "6, 10, and 14 years",
+          "12, 16, and 20 years"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "8, 12, and 16 are incorrect age milestones for Nazi youth organisations.",
+          "Correct! Ten-year-olds had to enter Jungvolk; at 14, all boys had to join the Nazi youth organisation Hitler Youth; and at 18, they joined the Labour Service before entering the armed forces.",
+          "6 was the normal school entry age, not Jungvolk entry.",
+          "12, 16, and 20 do not match the mandatory 10 / 14 / 18 progression."
+        ]
+      },
+      {
+        id: 75,
+        topic: "Youth & Cult of Motherhood",
+        type: "HOTS",
+        q: "According to Hitler, what was the specific purpose of sports—especially boxing—in Nazi schools?",
+        options: [
+          "To teach fair play and international sportsmanship",
+          "To nurture a spirit of violence and aggression and make children iron-hearted, strong, and masculine",
+          "To prepare students for the Olympic Games only",
+          "To help boys and girls compete equally in mixed teams"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Fair play and internationalism were mocked by Nazi ideology.",
+          "Correct! Hitler believed boxing could make children iron-hearted, strong, and masculine; thus the function of sports was to nurture violence and aggression.",
+          "While Germany hosted the 1936 Berlin Olympics, school sports were fundamentally geared toward militarism and aggression.",
+          "Nazi ideology strictly separated gender roles, training boys to be aggressive soldiers and girls to be mothers."
+        ]
+      },
+      {
+        id: 76,
+        topic: "Youth & Cult of Motherhood",
+        type: "VVI",
+        q: "When was the Youth League of the Nazis founded, and when was it renamed 'Hitler Youth'?",
+        options: [
+          "Founded in 1919, renamed in 1923",
+          "Founded in 1922, renamed in 1926",
+          "Founded in 1928, renamed in 1933",
+          "Founded in 1933, renamed in 1939"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "1919 was when Hitler joined the German Workers' Party, before the Youth League was founded.",
+          "Correct! The Youth League of the Nazis was founded in 1922 and renamed 'Hitler Youth' four years later in 1926; all other youth organisations were systematically dissolved and banned to unify youth under Nazi control.",
+          "By 1928, Hitler Youth was already established and growing.",
+          "1933 was when Hitler became Chancellor; the youth wing existed much earlier."
+        ]
+      },
+      {
+        id: 77,
+        topic: "Youth & Cult of Motherhood",
+        type: "VVI",
+        q: "Under the Nazi 'Cult of Motherhood', what were the three Honour Crosses awarded to mothers, and for how many children?",
+        options: [
+          "Bronze for 2, Silver for 4, Gold for 6",
+          "Bronze for 4, Silver for 6, Gold for 8 or more",
+          "Bronze for 3, Silver for 5, Gold for 7",
+          "Bronze for 5, Silver for 10, Gold for 15"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "2 children did not qualify for the Mother's Cross; the threshold started at 4.",
+          "Correct! To encourage women to produce many pure-blooded Aryan children, Honour Crosses were awarded: Bronze for 4 children, Silver for 6, and Gold for 8 or more.",
+          "3, 5, and 7 are incorrect thresholds.",
+          "5, 10, and 15 are exaggerated and inaccurate."
+        ]
+      },
+      {
+        id: 78,
+        topic: "Youth & Cult of Motherhood",
+        type: "HOTS",
+        q: "In Nazi Germany, why were not all mothers treated equally even under the 'Cult of Motherhood'?",
+        options: [
+          "Only mothers living in Berlin received state support",
+          "Women who bore racially undesirable children were punished, while those who produced racially desirable children were awarded",
+          "Working-class mothers were banned from marrying",
+          "Mothers of sons received awards while mothers of daughters were fined"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Racial policy applied across the entire Reich, not just Berlin.",
+          "Correct! Mothers of racially desirable Aryan children received favoured treatment in hospitals, concessions in shops, theatre tickets, and railway fares, whereas those who bore 'undesirable' children were punished.",
+          "Working-class Aryan women were encouraged to marry and bear children, not banned.",
+          "Awards depended on the number and 'racial purity' of children, not whether they were boys or girls."
+        ]
+      },
+      {
+        id: 79,
+        topic: "Youth & Cult of Motherhood",
+        type: "VVI",
+        q: "How were 'Aryan' women treated if they deviated from the prescribed Nazi code of conduct (such as maintaining contact with Jews, Poles, or Russians)?",
+        options: [
+          "They were quietly fined in private courts",
+          "They were publicly condemned, paraded through town with shaved heads, blackened faces, and placards around their necks",
+          "They were given a warning by the Hitler Youth",
+          "They were sent to universities for re-education"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "The Nazi regime used public humiliation to terrify others into conformity.",
+          "Correct! Women who maintained contact with Jews, Poles, or Russians were paraded through town with shaved heads, blackened faces, and placards reading 'I have sullied the honour of the nation', and many received jail sentences and lost civic honour.",
+          "The punishment was far harsher—public humiliation, imprisonment, and loss of family.",
+          "Universities were not used for this; offenders faced jail and social ostracism."
+        ]
+      },
+      {
+        id: 80,
+        topic: "Youth & Cult of Motherhood",
+        type: "HOTS",
+        q: "How did the Nazi regime view the struggle for equal rights between men and women?",
+        options: [
+          "It championed equal pay and political representation for women",
+          "It taught that men and women were radically different and that fighting for equal rights was wrong and would destroy society",
+          "It encouraged women to become frontline combat soldiers alongside men",
+          "It allowed women to hold all top cabinet ministries"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "The Nazis rolled back women's political and professional roles established during the Weimar Republic.",
+          "Correct! Children in Nazi Germany were repeatedly told that women were radically different from men, and that the fight for equal rights was part of a democratic struggle that would destroy society.",
+          "While boys were trained to be aggressive, masculine soldiers, girls were told to become good mothers and rear pure-blooded Aryan children.",
+          "Women were excluded from top Nazi leadership and Parliament."
+        ]
+      },
+      {
+        id: 81,
+        topic: "Youth & Cult of Motherhood",
+        type: "HOTS",
+        q: "Even in which unlikely school subject were stereotypes about Jews popularised under Nazi schooling?",
+        options: [
+          "Maths classes",
+          "Astronomy classes",
+          "Botany classes",
+          "Music classes"
+        ],
+        correct: 0,
+        optionsInfo: [
+          "Correct! Textbooks were rewritten, racial science was introduced to justify Nazi ideas of race, and stereotypes about Jews were popularised even through word problems in maths classes.",
+          "While astronomy wasn't the primary vehicle noted, maths word problems were explicitly twisted to spread anti-Jewish stereotypes.",
+          "Botany wasn't highlighted for anti-Jewish stereotypes; racial science and maths were.",
+          "Music was used for nationalist marches, whereas maths problems were used to teach antisemitic stereotypes."
+        ]
+      },
+      {
+        id: 82,
+        topic: "Youth & Cult of Motherhood",
+        type: "VVI",
+        q: "What three core attitudes were German children taught during Nazi ideological schooling?",
+        options: [
+          "Question authority, respect minorities, and support democracy",
+          "Be loyal and submissive, hate Jews, and worship Hitler",
+          "Pursue artistic freedom, reject war, and study Marxism",
+          "Travel abroad, learn foreign languages, and join trade unions"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Questioning authority, respecting minorities, and democracy were all crushed by Nazi education.",
+          "Correct! Children were taught to be loyal and submissive, hate Jews, and worship Hitler, while learning to glorify aggression and violence.",
+          "Marxism was banned and burnt in book burnings, and war was glorified.",
+          "Independent trade unions were banned in 1933, and foreign influences were rejected."
+        ]
+      },
+      {
+        id: 83,
+        topic: "Youth & Cult of Motherhood",
+        type: "HOTS",
+        q: "Why was Hitler so intensely interested in controlling the youth both inside and outside school?",
+        options: [
+          "He wanted to improve Germany's literacy rate for international trade",
+          "He felt a strong Nazi society could be established only by teaching children Nazi ideology from an early age",
+          "He wanted children to vote in local municipal elections at age 10",
+          "He needed children to replace adult factory workers in the Ruhr"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Literacy was already high in Germany; Hitler's goal was ideological indoctrination, not basic literacy.",
+          "Correct! Hitler was fanatically interested in youth, believing a strong Nazi society could only be built by controlling children both inside and outside school and indoctrinating them in Nazi ideology.",
+          "Children could not vote; elections themselves became meaningless one-party plebiscites.",
+          "Youth organisations trained boys for future military and ideological service, not as 10-year-old Ruhr miners."
+        ]
+      },
+      {
+        id: 84,
+        topic: "Youth & Cult of Motherhood",
+        type: "VVI",
+        q: "What were girls specifically instructed to do as part of their duties in Nazi Germany?",
+        options: [
+          "Join the SS protection squads at age 18",
+          "Become good mothers, rear pure-blooded Aryan children, maintain racial purity, distance themselves from Jews, and teach children Nazi values",
+          "Lead political opposition against the Weimar Constitution",
+          "Manage heavy armaments factories in Berlin"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "The SS was an all-male paramilitary and policing elite.",
+          "Correct! Girls were told they had to become good mothers, maintain the purity of the race, distance themselves from Jews, look after the home, and pass on Nazi values.",
+          "By the time the Nazi state was running, the Weimar Constitution had already been dismantled.",
+          "Only late in WWII, due to severe labour shortages, were women reluctantly drafted into war production—ideologically their role was motherhood and home."
+        ]
+      },
+      {
+        id: 85,
+        topic: "Youth & Cult of Motherhood",
+        type: "HOTS",
+        q: "How did the Nazi regime ensure that no alternative youth groups could compete with Hitler Youth?",
+        options: [
+          "By offering higher pocket money to Hitler Youth members",
+          "By systematically dissolving and finally banning all other youth organisations",
+          "By merging Hitler Youth with international Boy Scouts",
+          "By making membership completely optional and unpaid"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Coercion and legal bans, not pocket money, eliminated competing youth groups.",
+          "Correct! To unify the youth movement under Nazi control, all other youth organisations were systematically dissolved and finally banned.",
+          "International organisations like the Boy Scouts were banned in Nazi Germany.",
+          "Membership in Nazi youth organisations became compulsory for German children."
+        ]
+      },
+      {
+        id: 86,
+        topic: "Youth & Cult of Motherhood",
+        type: "VVI",
+        q: "In Nazi youth organisations, boys were trained to glorify which of the following?",
+        options: [
+          "Parliamentary debate and peaceful compromise",
+          "War, aggression, violence, and hatred of Jews, communists, and Gypsies",
+          "Individualism and artistic self-expression",
+          "Religious tolerance and universal brotherhood"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Boys in Hitler Youth were explicitly taught to condemn democracy.",
+          "Correct! In Hitler Youth, boys learned to worship war, glorify aggression and violence, condemn democracy, and hate Jews, communists, Gypsies, and all 'undesirables'.",
+          "Individualism was subordinated to total obedience to the Führer and the racial collective.",
+          "Religious tolerance and universal brotherhood contradicted Nazi racial hierarchy."
+        ]
+      },
+
+      // --- TOPIC 6: PROPAGANDA, RESISTANCE & THE HOLOCAUST (Q87 - Q100) ---
+      {
+        id: 87,
+        topic: "Propaganda & The Holocaust",
+        type: "VVI",
+        q: "Why did the Nazi regime never use the words 'kill' or 'murder' in their official communications?",
+        options: [
+          "Because mass killings were strictly prohibited by the Gestapo",
+          "They used deceptive terms like 'special treatment', 'final solution', 'selection', and 'disinfections' to mask horrific crimes",
+          "Because the German language lacked words for murder",
+          "To comply with League of Nations reporting standards"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "The Gestapo and SS actively carried out mass arrests, torture, and killings.",
+          "Correct! The Nazi regime used language and media with great care and chilling effect, disguising mass murder behind bureaucratic euphemisms.",
+          "German obviously has words for murder; the euphemisms were deliberate propaganda to disguise genocide.",
+          "Germany had walked out of the League of Nations in 1933."
+        ]
+      },
+      {
+        id: 88,
+        topic: "Propaganda & The Holocaust",
+        type: "HOTS",
+        q: "Match the Nazi euphemism with its actual horrific meaning:\n1. Final solution — (a) Killing of disabled\n2. Euthanasia — (b) Mass killing of Jews\n3. Evacuation — (c) Deporting people to gas chambers\n4. Disinfection-areas — (d) Gas chambers with fake showerheads",
+        options: [
+          "1-b, 2-a, 3-c, 4-d",
+          "1-a, 2-b, 3-d, 4-c",
+          "1-c, 2-d, 3-a, 4-b",
+          "1-b, 2-c, 3-a, 4-d"
+        ],
+        correct: 0,
+        optionsInfo: [
+          "Correct! 'Final solution' = mass murder of Jews; 'Euthanasia' = murder of the disabled; 'Evacuation' = deportation to gas chambers; 'Disinfection-areas' = gas chambers disguised as bathrooms with fake showerheads.",
+          "This swaps Final solution and Euthanasia, as well as Evacuation and Disinfection-areas.",
+          "This mismatches all four Nazi euphemisms.",
+          "This swaps Euthanasia (disabled) with Evacuation (deportation to gas chambers)."
+        ]
+      },
+      {
+        id: 89,
+        topic: "Propaganda & The Holocaust",
+        type: "VVI",
+        q: "Which was the most infamous Nazi propaganda film in which Orthodox Jews were stereotyped, shown with flowing beards and kaftans, and compared to vermin, rats, and pests?",
+        options: [
+          "Triumph of the Will",
+          "The Eternal Jew",
+          "The Great Dictator",
+          "All Quiet on the Western Front"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Triumph of the Will was Leni Riefenstahl's propaganda film glorifying the 1934 Nuremberg rally, not the specific anti-Jewish film comparing Jews to rats.",
+          "Correct! The Eternal Jew (Der ewige Jude) was the most infamous propaganda film creating deep hatred and disgust against Jews.",
+          "The Great Dictator (1940) was Charlie Chaplin's famous anti-Hitler satire!",
+          "All Quiet on the Western Front was an anti-war novel/film banned and burned by the Nazis."
+        ]
+      },
+      {
+        id: 90,
+        topic: "Propaganda & The Holocaust",
+        type: "HOTS",
+        q: "How did ordinary Germans generally react to Nazism and the persecution of Jews?",
+        options: [
+          "Every single German joined active armed resistance against Hitler",
+          "Some became active believers who reported neighbours, a few organised active resistance braving death, while the large majority were passive onlookers and apathetic witnesses",
+          "Nobody in Germany knew that Jews were being discriminated against",
+          "Ordinary Germans voted Hitler out of office in 1938"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Active resistance existed, but it was carried out by a courageous minority rather than every German.",
+          "Correct! Many saw the world through Nazi eyes and reported suspicious neighbours; some bravely resisted; but the large majority were passive onlookers too scared to act, differ, or protest.",
+          "Public boycotts, Nuremberg Laws, and marked houses made anti-Jewish persecution visible across everyday German life.",
+          "Free multi-party elections did not exist in 1938; all opposition parties were banned in 1933."
+        ]
+      },
+      {
+        id: 91,
+        topic: "Propaganda & The Holocaust",
+        type: "VVI",
+        q: "Who wrote the famous, moving lines about the silence of ordinary Germans ('First they came for the Communists... then they came for me—and there was no one left to speak for me')?",
+        options: [
+          "Charlotte Beradt",
+          "Pastor Niemoeller",
+          "Anne Frank",
+          "Hjalmar Schacht"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Charlotte Beradt secretly recorded people's dreams in Nazi Germany and published Third Reich of Dreams.",
+          "Correct! Pastor Martin Niemoeller, a resistance fighter, observed an absence of protest and an uncanny silence among ordinary Germans in the face of brutal Nazi crimes.",
+          "Anne Frank wrote her famous diary while hiding from the Nazis in Amsterdam.",
+          "Hjalmar Schacht was Hitler's economist, not a resistance pastor."
+        ]
+      },
+      {
+        id: 92,
+        topic: "Propaganda & The Holocaust",
+        type: "VVI",
+        q: "What did Charlotte Beradt secretly record and later publish in her book 'Third Reich of Dreams'?",
+        options: [
+          "Secret military plans for invading the Soviet Union",
+          "People's dreams, showing how even Jews themselves began believing in the Nazi stereotypes about them",
+          "Recipes for surviving food rationing in Berlin",
+          "Transcripts of the Nuremberg War Crimes Tribunal"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Beradt was a journalist documenting psychological terror, not a military strategist.",
+          "Correct! Charlotte Beradt secretly recorded people's dreams in her diary; Jews dreamt of their hooked noses, black hair, and Jewish looks, revealing how Nazi propaganda haunted even their subconscious.",
+          "Her book was a psychological record of terror and dreams, not about food rationing.",
+          "The Nuremberg Tribunal happened after WWII, whereas Beradt recorded dreams during the 1930s Nazi regime."
+        ]
+      },
+      {
+        id: 93,
+        topic: "Propaganda & The Holocaust",
+        type: "VVI",
+        q: "What does the term 'Holocaust' refer to?",
+        options: [
+          "The economic crash of Wall Street in 1929",
+          "The Nazi killing operations and systematic genocide of Jews and other targeted groups",
+          "The Allied bombing of the Ruhr industrial valley",
+          "The peace treaty signed at Versailles in 1919"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "The 1929 crash is known as the Wall Street Crash / Great Depression.",
+          "Correct! 'Holocaust' refers to the Nazi killing operations—the systematic mass murder of six million Jews and millions of others—whose full horrors became clear after Germany's defeat.",
+          "Allied bombing raids were part of WWII military operations, not the Holocaust.",
+          "The 1919 peace settlement was the Treaty of Versailles."
+        ]
+      },
+      {
+        id: 94,
+        topic: "Propaganda & The Holocaust",
+        type: "HOTS",
+        q: "Why did inhabitants of the Warsaw Ghetto collect diaries, notebooks, and archives and hide them in three milk cans?",
+        options: [
+          "To sell them to German soldiers for bread",
+          "Out of an indomitable spirit to bear witness and preserve the memory of what happened after they perished",
+          "To send secret military coordinates to Japan",
+          "To hide their gold coins from the Dawes Plan collectors"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Selling anti-Nazi documentation to German soldiers would have meant instant execution.",
+          "Correct! Many ghetto and camp inhabitants wanted to outlive the war just for half an hour to tell the world about the Holocaust; in the Warsaw Ghetto, they hid documents in three milk cans to preserve the truth.",
+          "Japan was Germany's ally, not a saviour of the Warsaw Ghetto.",
+          "The Dawes Plan was from 1924; the Warsaw Ghetto existed during WWII (1940–1943)."
+        ]
+      },
+      {
+        id: 95,
+        topic: "Propaganda & The Holocaust",
+        type: "HOTS",
+        q: "In contrast to the Warsaw Ghetto inhabitants who preserved records, what did the Nazi leadership do as defeat became certain in 1945?",
+        options: [
+          "They published all gas chamber blueprints in Berlin newspapers",
+          "They distributed petrol to their functionaries to destroy all incriminating evidence available in offices",
+          "They invited the Red Cross to film every extermination camp",
+          "They handed over all Gestapo files intact to the Soviet Red Army"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Nazis desperately tried to hide their crimes from the approaching Allied armies.",
+          "Correct! When the war seemed lost, the Nazi leadership distributed petrol to its functionaries to burn and destroy all incriminating evidence in offices and camps.",
+          "The Nazis tried to dismantle camps and hide evidence rather than invite independent filming.",
+          "They attempted to destroy files, though many records and survivor testimonies still survived."
+        ]
+      },
+      {
+        id: 96,
+        topic: "Propaganda & The Holocaust",
+        type: "HOTS",
+        q: "How did Nazi propaganda appeal to different sections of German society simultaneously?",
+        options: [
+          "By promising land to industrialists and factories to peasants",
+          "By using visual images, films, radio, posters, and catchy slogans tailored to stir anger against common 'enemies' and offer hope to each distressed group",
+          "By banning all radios and public rallies",
+          "By publishing academic economic journals in Latin"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "Promises were tailored to each group's real anxieties—jobs for workers, dignity for youth, stability for middle classes.",
+          "Correct! Socialists and liberals were represented as weak and degenerate, attacked as malicious foreign agents, while posters and rallies promised employment, national honour, and a secure future.",
+          "Nazis actually made cheap radios widely available and held massive rallies with red banners, Swastikas, and Nazi salutes.",
+          "Nazi propaganda used simple, repetitive emotional slogans in German, not Latin academic journals."
+        ]
+      },
+      {
+        id: 97,
+        topic: "Propaganda & The Holocaust",
+        type: "VVI",
+        q: "In Nazi propaganda posters of the late 1920s and 1930s, who were routinely attacked alongside Jews as 'malicious foreign agents' and 'weak and degenerate'?",
+        options: [
+          "Socialists and liberals",
+          "Storm Troopers and SS officers",
+          "Austrian nationalists",
+          "Bavarian farmers"
+        ],
+        correct: 0,
+        optionsInfo: [
+          "Correct! Nazi propaganda worked on the minds of people by tapping emotions and turning hatred against those marked as 'undesirable', representing socialists and liberals as weak, degenerate, and malicious foreign agents.",
+          "Storm Troopers (SA) and SS were the Nazis' own paramilitary and elite security forces.",
+          "Austrian nationalists were courted by Hitler to achieve the 1938 integration (Anschluss).",
+          "Farmers were glorified in Nazi 'Blood and Soil' propaganda as the backbone of the German nation."
+        ]
+      },
+      {
+        id: 98,
+        topic: "Propaganda & The Holocaust",
+        type: "HOTS",
+        q: "Why were Orthodox Jews in Nazi propaganda films often referred to as 'vermin, rats, and pests'?",
+        options: [
+          "To classify them as agricultural workers",
+          "To dehumanise them so that ordinary Germans would feel disgust rather than empathy when Jews were persecuted and killed",
+          "To praise their survival skills during the Great Depression",
+          "Because of a medical outbreak in Munich in 1933"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "They were excluded from professions and land ownership, not classified as agricultural workers.",
+          "Correct! Dehumanising language—comparing Jews' movements to rodents—was deliberately used to strip away human empathy and make persecution and extermination seem like 'hygiene' or 'disinfection'.",
+          "The comparison was malicious dehumanisation, not praise.",
+          "There was no such medical outbreak in Munich; it was pure racist propaganda."
+        ]
+      },
+      {
+        id: 99,
+        topic: "Propaganda & The Holocaust",
+        type: "HOTS",
+        q: "Consider the following statements about knowledge of the Holocaust:\n1. Information about Nazi practices had trickled out of Germany during the last years of the regime.\n2. The world realized the full horrors of what had happened only after the war ended and Germany was defeated.\nWhich of the statements given above is/are correct?",
+        options: [
+          "1 only",
+          "2 only",
+          "Both 1 and 2",
+          "Neither 1 nor 2"
+        ],
+        correct: 2,
+        optionsInfo: [
+          "Statement 1 is true, but Statement 2 is also true—while rumours and reports trickled out, the full scale was realized only after Germany's defeat.",
+          "Statement 2 is true, but Statement 1 is also true.",
+          "Correct! Both statements are accurate: partial information trickled out during the final years, yet the full horror of the Holocaust was only comprehended after Germany's defeat in 1945.",
+          "Both statements are historically accurate."
+        ]
+      },
+      {
+        id: 100,
+        topic: "Propaganda & The Holocaust",
+        type: "HOTS",
+        q: "What is the most enduring historical lesson highlighted by Pastor Niemoeller's poem and the reaction of ordinary Germans under Nazism?",
+        options: [
+          "Economic depressions always automatically create democracies",
+          "Apathy and silence by the majority when minority groups are persecuted allows totalitarian terror to consume everyone",
+          "Military alliances like the Tripartite Pact always guarantee victory",
+          "Propaganda has no effect on educated populations"
+        ],
+        correct: 1,
+        optionsInfo: [
+          "In Germany's case, the Great Depression destroyed a fragile democracy and propelled a dictatorship to power.",
+          "Correct! Niemoeller's warning highlights that when ordinary citizens remain silent and indifferent while others (Communists, Socialists, Trade Unionists, Jews) are targeted, eventually no one is left to speak up for anyone.",
+          "The Tripartite Pact powers (Germany, Italy, Japan) were all defeated in WWII.",
+          "Nazi Germany had a highly educated population, yet skilfully crafted propaganda and terror still swayed millions."
+        ]
+      }
+    ];
+
+    const STORAGE_TESTS_KEY = "cbt_gen_tests_v1";
+    const STORAGE_HISTORY_KEY = "cbt_gen_history_v1";
+    const STORAGE_KEY_API = "cbt_gen_gemini_key_v1";
+    const LABELS = ["A", "B", "C", "D"];
+
+    function loadTests() {
+      try {
+        const raw = localStorage.getItem(STORAGE_TESTS_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (e) {}
+      return [{
+        id: "nazism-ch3-100",
+        title: "History Class 9 Ch 3 — Nazism & the Rise of Hitler",
+        subtitle: "VVI & HOTS Practice Test",
+        createdAt: "2026-11-27",
+        questions: DEFAULT_NAZISM_QUESTIONS,
+        userAnswers: new Array(DEFAULT_NAZISM_QUESTIONS.length).fill(null),
+        markedForReview: new Array(DEFAULT_NAZISM_QUESTIONS.length).fill(false),
+        bookmarked: new Array(DEFAULT_NAZISM_QUESTIONS.length).fill(false)
+      }];
+    }
+
+    function saveTests(list) {
+      try { localStorage.setItem(STORAGE_TESTS_KEY, JSON.stringify(list)); } catch (e) {}
+    }
+
+    function loadHistory() {
+      try {
+        const raw = localStorage.getItem(STORAGE_HISTORY_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch (e) {}
+      return [];
+    }
+
+    function saveHistory(list) {
+      try { localStorage.setItem(STORAGE_HISTORY_KEY, JSON.stringify(list)); } catch (e) {}
+    }
+
+    function loadApiKey() {
+      try { return localStorage.getItem(STORAGE_KEY_API) || ""; } catch (e) { return ""; }
+    }
+
+    function saveApiKey(k) {
+      try { localStorage.setItem(STORAGE_KEY_API, k); } catch (e) {}
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById("toast");
+      t.textContent = msg;
+      t.classList.remove("hidden");
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(() => t.classList.add("hidden"), 3500);
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, s => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[s]));
+    }
+
+    // App State
+    let tests = loadTests();
+    let historyLogs = loadHistory();
+    let activeTestId = null;
+    let currentIndex = 0;
+    let activeFilter = "ALL";
+    let negMarking = 0;
+    let confirmCallback = null;
+    let wakeLockSentinel = null;
+    let isGeneratingBg = false;
+
+    // Views & Elements
+    const homeView = document.getElementById("homeView");
+    const examView = document.getElementById("examView");
+    const testsGrid = document.getElementById("testsGrid");
+    const librarySearchInput = document.getElementById("librarySearchInput");
+    const libraryCountBadge = document.getElementById("libraryCountBadge");
+    const bgGenPill = document.getElementById("bgGenPill");
+    const bgGenPillText = document.getElementById("bgGenPillText");
+
+    const examTitle = document.getElementById("examTitle");
+    const examSubtitle = document.getElementById("examSubtitle");
+    const qNumberBadge = document.getElementById("qNumberBadge");
+    const qTopicBadge = document.getElementById("qTopicBadge");
+    const qTypeBadge = document.getElementById("qTypeBadge");
+    const bookmarkBtn = document.getElementById("bookmarkBtn");
+    const marksSchemeLabel = document.getElementById("marksSchemeLabel");
+    const qText = document.getElementById("qText");
+    const optionsContainer = document.getElementById("optionsContainer");
+    const feedbackBox = document.getElementById("feedbackBox");
+    const feedbackHeader = document.getElementById("feedbackHeader");
+    const allOptionsExplanations = document.getElementById("allOptionsExplanations");
+    const prevBtn = document.getElementById("prevBtn");
+    const nextBtn = document.getElementById("nextBtn");
+    const markReviewBtn = document.getElementById("markReviewBtn");
+    const nextUnansweredBtn = document.getElementById("nextUnansweredBtn");
+    const headerScore = document.getElementById("headerScore");
+    const headerTotalMarks = document.getElementById("headerTotalMarks");
+    const headerAttempted = document.getElementById("headerAttempted");
+    const headerTotalQ = document.getElementById("headerTotalQ");
+    const countCorrect = document.getElementById("countCorrect");
+    const countWrong = document.getElementById("countWrong");
+    const countReview = document.getElementById("countReview");
+    const countLeft = document.getElementById("countLeft");
+    const paletteSidebar = document.getElementById("paletteSidebar");
+    const togglePaletteBtn = document.getElementById("togglePaletteBtn");
+    const topicFilter = document.getElementById("topicFilter");
+    const negMarkingSelect = document.getElementById("negMarkingSelect");
+    const paletteGrid = document.getElementById("paletteGrid");
+    const paletteTitle = document.getElementById("paletteTitle");
+
+    const resultModal = document.getElementById("resultModal");
+    const aiGenModal = document.getElementById("aiGenModal");
+    const importModal = document.getElementById("importModal");
+    const historyModal = document.getElementById("historyModal");
+    const confirmModal = document.getElementById("confirmModal");
+
+    function getActiveTest() {
+      const t = tests.find(x => x.id === activeTestId) || tests[0];
+      if (!t.bookmarked) t.bookmarked = new Array(t.questions.length).fill(false);
+      return t;
+    }
+
+    function openConfirm(title, msg, onConfirm) {
+      document.getElementById("confirmTitle").textContent = title;
+      document.getElementById("confirmMessage").textContent = msg;
+      confirmCallback = onConfirm;
+      confirmModal.classList.remove("hidden");
+    }
+
+    document.getElementById("cancelConfirmBtn").addEventListener("click", () => {
+      confirmModal.classList.add("hidden");
+      confirmCallback = null;
+    });
+    document.getElementById("okConfirmBtn").addEventListener("click", () => {
+      confirmModal.classList.add("hidden");
+      if (confirmCallback) confirmCallback();
+      confirmCallback = null;
+    });
+
+    // ==================== PDF EXPORT (jsPDF) ====================
+    function exportTestPdf(test) {
+      if (!window.jspdf || !window.jspdf.jsPDF) {
+        showToast("PDF library is loading or offline. Please check internet for first PDF export.");
+        return;
+      }
+      try {
+        showToast("Generating PDF...");
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
+        const pageW = doc.internal.pageSize.getWidth();
+        const pageH = doc.internal.pageSize.getHeight();
+        const margin = 12;
+        const maxW = pageW - margin * 2;
+        let y = 16;
+
+        const addLine = (text, size, bold, color = [30, 41, 59], gap = 4.5) => {
+          doc.setFont("helvetica", bold ? "bold" : "normal");
+          doc.setFontSize(size);
+          doc.setTextColor(...color);
+          const lines = doc.splitTextToSize(String(text), maxW);
+          lines.forEach(line => {
+            if (y > pageH - 14) {
+              doc.addPage();
+              y = 14;
+            }
+            doc.text(line, margin, y);
+            y += gap;
+          });
+        };
+
+        addLine(test.title, 14, true, [15, 23, 42], 6);
+        addLine(`${test.subtitle || "CBT Practice"} | ${test.questions.length} Questions | All 4 Options Explained`, 9, false, [100, 116, 139], 7);
+
+        test.questions.forEach((q, idx) => {
+          if (y > pageH - 45) { doc.addPage(); y = 14; }
+          addLine(`Q${idx + 1}. [${q.topic || "General"} | ${q.type || "VVI"}] ${q.q}`, 10, true, [15, 23, 42], 4.8);
+          q.options.forEach((opt, oIdx) => {
+            const isAns = oIdx === q.correct;
+            addLine(`   (${LABELS[oIdx]}) ${opt}${isAns ? "  [CORRECT]" : ""}`, 9.5, isAns, isAns ? [4, 120, 87] : [51, 65, 85], 4.3);
+          });
+          y += 1;
+          (q.optionsInfo || []).forEach((info, oIdx) => {
+            addLine(`   -> Option ${LABELS[oIdx]}: ${info}`, 8.5, false, [71, 85, 105], 4.0);
+          });
+          y += 3.5;
+        });
+
+        const safeName = (test.title || "cbt_test").toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 40);
+        doc.save(`${safeName}.pdf`);
+        showToast("PDF downloaded successfully!");
+      } catch (err) {
+        showToast("PDF export failed: " + (err.message || "Unknown error"));
+      }
+    }
+
+    // ==================== LIBRARY RENDERING ====================
+    function renderLibrary() {
+      homeView.classList.remove("hidden");
+      examView.classList.add("hidden");
+      const query = (librarySearchInput.value || "").trim().toLowerCase();
+      const visibleTests = query
+        ? tests.filter(t => (t.title || "").toLowerCase().includes(query) || (t.subtitle || "").toLowerCase().includes(query))
+        : tests;
+
+      libraryCountBadge.textContent = `${tests.length} Saved Test${tests.length === 1 ? "" : "s"}`;
+      testsGrid.innerHTML = "";
+
+      if (visibleTests.length === 0) {
+        testsGrid.innerHTML = `<div class="col-span-full bg-white rounded-2xl border border-slate-200 p-8 text-center text-sm text-slate-500">No matching tests found.</div>`;
+        return;
+      }
+
+      visibleTests.forEach(test => {
+        const total = test.questions.length;
+        let correct = 0, attempted = 0;
+        test.questions.forEach((q, idx) => {
+          if (test.userAnswers[idx] !== null && test.userAnswers[idx] !== undefined) {
+            attempted++;
+            if (test.userAnswers[idx] === q.correct) correct++;
+          }
+        });
+
+        const card = document.createElement("div");
+        card.className = "bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col justify-between gap-4 hover:border-indigo-300 transition";
+        card.innerHTML = `
+          <div class="space-y-2">
+            <div class="flex items-start justify-between gap-2">
+              <span class="bg-indigo-50 text-indigo-700 text-[11px] font-bold px-2.5 py-1 rounded-md">${total} Questions &bull; ${total} Marks</span>
+              <span class="text-[11px] text-slate-400">${test.createdAt || ""}</span>
+            </div>
+            <h3 class="text-base font-bold text-slate-900 leading-snug">${escapeHtml(test.title)}</h3>
+            <p class="text-xs text-slate-500">${escapeHtml(test.subtitle || "Untimed CBT Practice")}</p>
+            <div class="pt-1 flex items-center gap-3 text-xs font-semibold">
+              <span class="text-emerald-700">Score: ${correct} / ${total}</span>
+              <span class="text-slate-400">&bull;</span>
+              <span class="text-sky-700">Attempted: ${attempted} / ${total}</span>
+            </div>
+          </div>
+          <div class="space-y-2 pt-3 border-t border-slate-100">
+            <div class="flex items-center gap-2">
+              <button data-action="start" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 px-3 rounded-lg transition">
+                ${attempted > 0 ? "Resume CBT" : "Start CBT"}
+              </button>
+              <button data-action="pdf" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-semibold py-2 px-3 rounded-lg transition">
+                PDF
+              </button>
+              <button data-action="export" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold py-2 px-3 rounded-lg transition">
+                JSON
+              </button>
+              <button data-action="delete" class="bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold py-2 px-2.5 rounded-lg transition">
+                Del
+              </button>
+            </div>
+          </div>
+        `;
+
+        card.querySelector('[data-action="start"]').addEventListener("click", () => startTest(test.id));
+        card.querySelector('[data-action="pdf"]').addEventListener("click", () => exportTestPdf(test));
+        card.querySelector('[data-action="export"]').addEventListener("click", () => {
+          const blob = new Blob([JSON.stringify(test.questions, null, 2)], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url; a.download = `${test.id}.json`;
+          document.body.appendChild(a); a.click(); a.remove();
+          URL.revokeObjectURL(url);
+          showToast("Exported test JSON.");
+        });
+        card.querySelector('[data-action="delete"]').addEventListener("click", () => {
+          if (tests.length === 1) { showToast("Keep at least 1 test in your library."); return; }
+          openConfirm("Delete Test?", `Remove "${test.title}" from your saved library?`, () => {
+            tests = tests.filter(t => t.id !== test.id);
+            saveTests(tests);
+            renderLibrary();
+            showToast("Test deleted.");
+          });
+        });
+
+        testsGrid.appendChild(card);
+      });
+    }
+
+    librarySearchInput.addEventListener("input", renderLibrary);
+
+    // ==================== EXAM ENGINE ====================
+    function startTest(testId) {
+      activeTestId = testId;
+      currentIndex = 0;
+      activeFilter = "ALL";
+      const test = getActiveTest();
+
+      homeView.classList.add("hidden");
+      examView.classList.remove("hidden");
+
+      examTitle.textContent = test.title;
+      const total = test.questions.length;
+      examSubtitle.textContent = `${total} Questions • ${total} Marks • Untimed Mode`;
+      paletteTitle.textContent = `Question Palette (1–${total})`;
+      headerTotalMarks.textContent = `/ ${total}`;
+      headerTotalQ.textContent = `/ ${total}`;
+
+      const topics = [...new Set(test.questions.map(q => q.topic || "General"))];
+      topicFilter.innerHTML = `
+        <option value="ALL">All Questions (${total})</option>
+        <option value="__BOOKMARKED__">Bookmarked Only</option>
+        <option value="__WRONG__">Incorrect Only</option>
+      `;
+      topics.forEach(tp => {
+        const opt = document.createElement("option");
+        opt.value = tp; opt.textContent = tp;
+        topicFilter.appendChild(opt);
+      });
+      topicFilter.value = "ALL";
+      renderQuestion();
+    }
+
+    document.getElementById("backToLibraryBtn").addEventListener("click", renderLibrary);
+
+    function getFilteredIndices() {
+      const test = getActiveTest();
+      if (activeFilter === "ALL") return test.questions.map((_, i) => i);
+      if (activeFilter === "__BOOKMARKED__") return test.questions.map((_, i) => (test.bookmarked[i] ? i : -1)).filter(i => i !== -1);
+      if (activeFilter === "__WRONG__") return test.questions.map((q, i) => (test.userAnswers[i] !== null && test.userAnswers[i] !== q.correct ? i : -1)).filter(i => i !== -1);
+      return test.questions.map((q, i) => ((q.topic || "General") === activeFilter ? i : -1)).filter(i => i !== -1);
+    }
+
+    function updateStats() {
+      const test = getActiveTest();
+      const qs = test.questions;
+      let correct = 0, wrong = 0, review = 0;
+      for (let i = 0; i < qs.length; i++) {
+        if (test.userAnswers[i] !== null && test.userAnswers[i] !== undefined) {
+          if (test.userAnswers[i] === qs[i].correct) correct++;
+          else wrong++;
+        }
+        if (test.markedForReview[i]) review++;
+      }
+      const netScore = Math.round((correct - wrong * negMarking) * 100) / 100;
+      headerScore.textContent = netScore;
+      headerAttempted.textContent = correct + wrong;
+      countCorrect.textContent = correct;
+      countWrong.textContent = wrong;
+      countReview.textContent = review;
+      countLeft.textContent = qs.length - (correct + wrong);
+      marksSchemeLabel.textContent = `+1 | Neg: ${negMarking === 0 ? "0" : "-" + negMarking}`;
+    }
+
+    function renderPalette() {
+      const test = getActiveTest();
+      const indices = getFilteredIndices();
+      paletteGrid.innerHTML = "";
+      if (indices.length === 0) {
+        paletteGrid.innerHTML = `<div class="col-span-5 text-xs text-slate-400 py-2">No questions match this filter.</div>`;
+        return;
+      }
+      indices.forEach(idx => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = (test.bookmarked[idx] ? "★" : "") + (idx + 1);
+
+        let cls = "h-9 rounded-lg text-xs font-bold border transition flex items-center justify-center ";
+        const ans = test.userAnswers[idx];
+        const isCurrent = idx === currentIndex;
+        const isRev = test.markedForReview[idx];
+
+        if (ans !== null && ans !== undefined) {
+          cls += ans === test.questions[idx].correct ? "bg-emerald-600 text-white border-emerald-700 " : "bg-rose-600 text-white border-rose-700 ";
+        } else if (isRev) {
+          cls += "bg-purple-600 text-white border-purple-700 ";
+        } else {
+          cls += "bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200 ";
+        }
+
+        if (isCurrent) cls += "ring-2 ring-indigo-600 ring-offset-1 ";
+        btn.className = cls;
+        btn.addEventListener("click", () => {
+          currentIndex = idx;
+          renderQuestion();
+          if (window.innerWidth < 1024) paletteSidebar.classList.add("hidden");
+        });
+        paletteGrid.appendChild(btn);
+      });
+    }
+
+    function renderQuestion() {
+      const test = getActiveTest();
+      const qs = test.questions;
+      const q = qs[currentIndex];
+      const selected = test.userAnswers[currentIndex];
+      const isAnswered = selected !== null && selected !== undefined;
+
+      qNumberBadge.textContent = `Q ${currentIndex + 1} / ${qs.length}`;
+      qTopicBadge.textContent = q.topic || "General";
+      qTypeBadge.textContent = q.type || "VVI";
+      qTypeBadge.className = q.type === "HOTS"
+        ? "bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-1 rounded-md"
+        : "bg-sky-100 text-sky-800 text-xs font-semibold px-2.5 py-1 rounded-md";
+
+      if (test.bookmarked[currentIndex]) {
+        bookmarkBtn.innerHTML = "&#9733; Bookmarked";
+        bookmarkBtn.className = "text-xs font-semibold px-2.5 py-1 rounded-md border border-amber-400 bg-amber-50 text-amber-800 transition";
+      } else {
+        bookmarkBtn.innerHTML = "&#9734; Bookmark";
+        bookmarkBtn.className = "text-xs font-semibold px-2.5 py-1 rounded-md border border-slate-300 bg-white hover:bg-amber-50 text-slate-600 transition";
+      }
+
+      qText.textContent = q.q;
+
+      if (test.markedForReview[currentIndex]) {
+        markReviewBtn.textContent = "Unmark Review";
+        markReviewBtn.className = "px-3.5 py-2 rounded-lg border border-purple-500 bg-purple-600 text-white text-xs sm:text-sm font-semibold transition";
+      } else {
+        markReviewBtn.textContent = "Mark for Review";
+        markReviewBtn.className = "px-3.5 py-2 rounded-lg border border-purple-300 bg-purple-50 hover:bg-purple-100 text-xs sm:text-sm font-semibold text-purple-700 transition";
+      }
+
+      optionsContainer.innerHTML = "";
+      q.options.forEach((optText, optIdx) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.disabled = isAnswered;
+
+        let cardCls = "w-full text-left p-3.5 sm:p-4 rounded-xl border-2 transition flex items-start gap-3 ";
+        let badgeCls = "w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ";
+
+        if (!isAnswered) {
+          cardCls += "border-slate-200 bg-white hover:border-indigo-400 hover:bg-indigo-50/40 cursor-pointer";
+          badgeCls += "bg-slate-100 text-slate-700 border border-slate-300";
+        } else {
+          if (optIdx === q.correct) {
+            cardCls += "border-emerald-500 bg-emerald-50 text-emerald-950";
+            badgeCls += "bg-emerald-600 text-white";
+          } else if (optIdx === selected) {
+            cardCls += "border-rose-500 bg-rose-50 text-rose-950";
+            badgeCls += "bg-rose-600 text-white";
+          } else {
+            cardCls += "border-slate-200 bg-slate-50/70 text-slate-500";
+            badgeCls += "bg-slate-200 text-slate-600";
+          }
+        }
+
+        btn.className = cardCls;
+        const badge = document.createElement("span");
+        badge.className = badgeCls; badge.textContent = LABELS[optIdx];
+        const spanText = document.createElement("span");
+        spanText.className = "text-sm sm:text-base font-medium leading-snug flex-1";
+        spanText.textContent = optText;
+
+        btn.appendChild(badge);
+        btn.appendChild(spanText);
+
+        if (isAnswered) {
+          const statusTag = document.createElement("span");
+          statusTag.className = "text-xs font-bold shrink-0 mt-1";
+          if (optIdx === q.correct) { statusTag.textContent = "✓ Correct"; statusTag.className += " text-emerald-700"; btn.appendChild(statusTag); }
+          else if (optIdx === selected) { statusTag.textContent = "✗ Your Choice"; statusTag.className += " text-rose-700"; btn.appendChild(statusTag); }
+        }
+
+        btn.addEventListener("click", () => selectOption(optIdx));
+        optionsContainer.appendChild(btn);
+      });
+
+      if (isAnswered) {
+        const isCorrect = selected === q.correct;
+        feedbackBox.classList.remove("hidden", "bg-emerald-50/60", "border-emerald-200", "bg-rose-50/60", "border-rose-200");
+        if (isCorrect) {
+          feedbackBox.classList.add("bg-emerald-50/60", "border-emerald-200");
+          feedbackHeader.innerHTML = `
+            <div class="flex items-center gap-2">
+              <span class="px-2.5 py-1 rounded-md bg-emerald-600 text-white text-xs font-bold">✓ RIGHT ANSWER (+1 Mark)</span>
+              <span class="text-sm font-semibold text-emerald-900">Option ${LABELS[q.correct]} is correct!</span>
+            </div>
+            <span class="text-xs text-emerald-700 font-medium">Review all 4 concepts below</span>
+          `;
+        } else {
+          feedbackBox.classList.add("bg-rose-50/60", "border-rose-200");
+          feedbackHeader.innerHTML = `
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="px-2.5 py-1 rounded-md bg-rose-600 text-white text-xs font-bold">✗ WRONG ANSWER (${negMarking > 0 ? "-" + negMarking : "0"} Marks)</span>
+              <span class="text-sm font-semibold text-rose-900">You chose Option ${LABELS[selected]} &bull; Correct Answer: Option ${LABELS[q.correct]}</span>
+            </div>
+            <span class="text-xs text-rose-700 font-medium">Review all 4 concepts below</span>
+          `;
+        }
+
+        allOptionsExplanations.innerHTML = "";
+        (q.optionsInfo || []).forEach((info, idx) => {
+          const item = document.createElement("div");
+          const isOptCorrect = idx === q.correct;
+          const isOptSelectedWrong = idx === selected && !isOptCorrect;
+
+          let itemCls = "p-3 rounded-lg border text-xs sm:text-sm leading-relaxed ";
+          if (isOptCorrect) itemCls += "bg-white border-emerald-300 text-slate-800";
+          else if (isOptSelectedWrong) itemCls += "bg-white border-rose-300 text-slate-800";
+          else itemCls += "bg-white/90 border-slate-200 text-slate-700";
+          item.className = itemCls;
+
+          const titleRow = document.createElement("div");
+          titleRow.className = "flex items-center gap-2 mb-1";
+          const optLabel = document.createElement("span");
+          optLabel.className = isOptCorrect ? "font-bold text-emerald-700" : isOptSelectedWrong ? "font-bold text-rose-700" : "font-bold text-slate-700";
+          optLabel.textContent = `Option ${LABELS[idx]}: ${q.options[idx]}`;
+          titleRow.appendChild(optLabel);
+
+          const expText = document.createElement("p");
+          expText.className = "text-slate-600";
+          expText.textContent = info;
+
+          item.appendChild(titleRow);
+          item.appendChild(expText);
+          allOptionsExplanations.appendChild(item);
+        });
+      } else {
+        feedbackBox.classList.add("hidden");
+      }
+
+      prevBtn.disabled = currentIndex === 0;
+      nextBtn.disabled = currentIndex === qs.length - 1;
+      updateStats();
+      renderPalette();
+    }
+
+    function selectOption(optIdx) {
+      const test = getActiveTest();
+      if (test.userAnswers[currentIndex] !== null && test.userAnswers[currentIndex] !== undefined) return;
+      test.userAnswers[currentIndex] = optIdx;
+      saveTests(tests);
+      renderQuestion();
+    }
+
+    bookmarkBtn.addEventListener("click", () => {
+      const test = getActiveTest();
+      test.bookmarked[currentIndex] = !test.bookmarked[currentIndex];
+      saveTests(tests);
+      renderQuestion();
+    });
+
+    prevBtn.addEventListener("click", () => { if (currentIndex > 0) { currentIndex--; renderQuestion(); } });
+    nextBtn.addEventListener("click", () => {
+      const test = getActiveTest();
+      if (currentIndex < test.questions.length - 1) { currentIndex++; renderQuestion(); }
+    });
+    markReviewBtn.addEventListener("click", () => {
+      const test = getActiveTest();
+      test.markedForReview[currentIndex] = !test.markedForReview[currentIndex];
+      saveTests(tests);
+      renderQuestion();
+    });
+    nextUnansweredBtn.addEventListener("click", () => {
+      const test = getActiveTest();
+      const len = test.questions.length;
+      for (let offset = 1; offset <= len; offset++) {
+        const idx = (currentIndex + offset) % len;
+        if (test.userAnswers[idx] === null || test.userAnswers[idx] === undefined) {
+          currentIndex = idx; renderQuestion(); return;
+        }
+      }
+      showToast("All questions have been answered!");
+    });
+
+    topicFilter.addEventListener("change", (e) => {
+      activeFilter = e.target.value;
+      const filtered = getFilteredIndices();
+      if (filtered.length > 0 && !filtered.includes(currentIndex)) {
+        currentIndex = filtered[0]; renderQuestion();
+      } else {
+        renderPalette();
+      }
+    });
+
+    negMarkingSelect.addEventListener("change", (e) => {
+      negMarking = parseFloat(e.target.value) || 0;
+      renderQuestion();
+    });
+
+    togglePaletteBtn.addEventListener("click", () => paletteSidebar.classList.toggle("hidden"));
+
+    document.getElementById("resetTestBtn").addEventListener("click", () => {
+      openConfirm("Reset This Test?", "This will clear your selected answers and review marks for this test.", () => {
+        const test = getActiveTest();
+        test.userAnswers = new Array(test.questions.length).fill(null);
+        test.markedForReview = new Array(test.questions.length).fill(false);
+        currentIndex = 0; activeFilter = "ALL"; topicFilter.value = "ALL";
+        saveTests(tests);
+        renderQuestion();
+      });
+    });
+
+    // ==================== RESULT & HISTORY LOGGING ====================
+    function openResultModal() {
+      const test = getActiveTest();
+      const total = test.questions.length;
+      let correct = 0, wrong = 0;
+      const topicStats = {};
+
+      test.questions.forEach((q, i) => {
+        const tp = q.topic || "General";
+        if (!topicStats[tp]) topicStats[tp] = { total: 0, correct: 0, attempted: 0 };
+        topicStats[tp].total++;
+        if (test.userAnswers[i] !== null && test.userAnswers[i] !== undefined) {
+          topicStats[tp].attempted++;
+          if (test.userAnswers[i] === q.correct) { correct++; topicStats[tp].correct++; }
+          else wrong++;
+        }
+      });
+
+      const attempted = correct + wrong;
+      const accuracy = attempted > 0 ? Math.round((correct / attempted) * 100) : 0;
+      const netScore = Math.round((correct - wrong * negMarking) * 100) / 100;
+
+      if (attempted > 0) {
+        historyLogs.unshift({
+          id: "hist-" + Date.now(),
+          title: test.title,
+          date: new Date().toLocaleString(),
+          score: `${netScore} / ${total}`,
+          correct,
+          wrong,
+          attempted,
+          accuracy: `${accuracy}%`
+        });
+        if (historyLogs.length > 50) historyLogs = historyLogs.slice(0, 50);
+        saveHistory(historyLogs);
+      }
+
+      document.getElementById("modalTestSubtitle").textContent = `${test.title} — ${total} Questions / ${total} Marks`;
+      document.getElementById("modalScore").textContent = `${netScore} / ${total}`;
+      document.getElementById("modalCorrect").textContent = correct;
+      document.getElementById("modalWrong").textContent = wrong;
+      document.getElementById("modalAccuracy").textContent = `${accuracy}%`;
+
+      const list = document.getElementById("topicBreakdownList");
+      list.innerHTML = "";
+      Object.entries(topicStats).forEach(([topic, st]) => {
+        const pct = st.total > 0 ? Math.round((st.correct / st.total) * 100) : 0;
+        const row = document.createElement("div");
+        row.className = "space-y-1";
+        row.innerHTML = `
+          <div class="flex justify-between text-xs font-semibold text-slate-700">
+            <span>${escapeHtml(topic)}</span>
+            <span>${st.correct} / ${st.total} (${st.attempted} attempted)</span>
+          </div>
+          <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+            <div class="h-full bg-indigo-600 rounded-full transition-all" style="width: ${pct}%"></div>
+          </div>
+        `;
+        list.appendChild(row);
+      });
+
+      resultModal.classList.remove("hidden");
+    }
+
+    document.getElementById("submitTestBtn").addEventListener("click", openResultModal);
+    document.getElementById("closeModalBtn").addEventListener("click", () => resultModal.classList.add("hidden"));
+    document.getElementById("modalCloseContinueBtn").addEventListener("click", () => resultModal.classList.add("hidden"));
+    document.getElementById("modalResetBtn").addEventListener("click", () => {
+      resultModal.classList.add("hidden");
+      document.getElementById("resetTestBtn").click();
+    });
+    document.getElementById("modalExportPdfBtn").addEventListener("click", () => exportTestPdf(getActiveTest()));
+
+    document.getElementById("modalRetryWrongBtn").addEventListener("click", () => {
+      const test = getActiveTest();
+      const wrongQs = test.questions.filter((q, i) => test.userAnswers[i] !== null && test.userAnswers[i] !== q.correct);
+      if (wrongQs.length === 0) {
+        showToast("No incorrect questions to retry!");
+        return;
+      }
+      const retryTest = {
+        id: "retry-" + Date.now(),
+        title: `Retry Wrong — ${test.title}`,
+        subtitle: `Focused Revision (${wrongQs.length} Qs)`,
+        createdAt: new Date().toISOString().slice(0, 10),
+        questions: wrongQs.map((q, idx) => ({ ...q, id: idx + 1 })),
+        userAnswers: new Array(wrongQs.length).fill(null),
+        markedForReview: new Array(wrongQs.length).fill(false),
+        bookmarked: new Array(wrongQs.length).fill(false)
+      };
+      tests.unshift(retryTest);
+      saveTests(tests);
+      resultModal.classList.add("hidden");
+      startTest(retryTest.id);
+    });
+
+    // History Modal
+    function renderHistoryModal() {
+      const list = document.getElementById("historyList");
+      list.innerHTML = "";
+      if (historyLogs.length === 0) {
+        list.innerHTML = `<div class="text-sm text-slate-500 text-center py-6">No history yet. Attempt a test and click "View Result" to record your score.</div>`;
+      } else {
+        historyLogs.forEach(h => {
+          const row = document.createElement("div");
+          row.className = "p-3.5 rounded-xl border border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-2";
+          row.innerHTML = `
+            <div>
+              <div class="text-sm font-bold text-slate-900">${escapeHtml(h.title)}</div>
+              <div class="text-xs text-slate-500">${escapeHtml(h.date)}</div>
+            </div>
+            <div class="flex items-center gap-3 text-xs font-bold">
+              <span class="bg-indigo-100 text-indigo-800 px-2.5 py-1 rounded-md">Score: ${escapeHtml(h.score)}</span>
+              <span class="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-md">Acc: ${escapeHtml(h.accuracy)}</span>
+            </div>
+          `;
+          list.appendChild(row);
+        });
+      }
+      historyModal.classList.remove("hidden");
+    }
+
+    document.getElementById("openHistoryModalBtn").addEventListener("click", renderHistoryModal);
+    document.getElementById("closeHistoryModalBtn").addEventListener("click", () => historyModal.classList.add("hidden"));
+    document.getElementById("closeHistoryFooterBtn").addEventListener("click", () => historyModal.classList.add("hidden"));
+    document.getElementById("clearHistoryBtn").addEventListener("click", () => {
+      historyLogs = [];
+      saveHistory(historyLogs);
+      renderHistoryModal();
+      showToast("History cleared.");
+    });
+
+    // ==================== FAST PARALLEL AI GENERATOR ====================
+    const aiTopicInput = document.getElementById("aiTopicInput");
+    const aiExamLevel = document.getElementById("aiExamLevel");
+    const aiQuestionCount = document.getElementById("aiQuestionCount");
+    const aiLanguage = document.getElementById("aiLanguage");
+    const aiApiKeyInput = document.getElementById("aiApiKeyInput");
+    const aiProgressBox = document.getElementById("aiProgressBox");
+    const aiProgressText = document.getElementById("aiProgressText");
+    const aiProgressPct = document.getElementById("aiProgressPct");
+    const aiProgressBar = document.getElementById("aiProgressBar");
+    const aiErrorBox = document.getElementById("aiErrorBox");
+    const startAiGenBtn = document.getElementById("startAiGenBtn");
+
+    document.getElementById("openAiGenModalBtn").addEventListener("click", () => {
+      aiApiKeyInput.value = loadApiKey();
+      aiErrorBox.classList.add("hidden");
+      if (!isGeneratingBg) aiProgressBox.classList.add("hidden");
+      aiGenModal.classList.remove("hidden");
+    });
+    document.getElementById("closeAiModalBtn").addEventListener("click", () => aiGenModal.classList.add("hidden"));
+    document.getElementById("cancelAiGenBtn").addEventListener("click", () => aiGenModal.classList.add("hidden"));
+    document.getElementById("minimizeAiGenBtn").addEventListener("click", () => {
+      aiGenModal.classList.add("hidden");
+      if (isGeneratingBg) bgGenPill.classList.remove("hidden");
+    });
+    bgGenPill.addEventListener("click", () => {
+      bgGenPill.classList.add("hidden");
+      aiGenModal.classList.remove("hidden");
+    });
+
+    async function requestWakeLock() {
+      try {
+        if ("wakeLock" in navigator) {
+          wakeLockSentinel = await navigator.wakeLock.request("screen");
+        }
+      } catch (e) {}
+    }
+    function releaseWakeLock() {
+      try { if (wakeLockSentinel) { wakeLockSentinel.release(); wakeLockSentinel = null; } } catch (e) {}
+    }
+
+    async function fetchGeminiBatch(apiKey, topic, level, language, count, batchNum, totalBatches) {
+      const prompt = `Generate exactly ${count} unique VVI & HOTS multiple-choice questions on "${topic}" (${level}) in "${language}".
+This is part ${batchNum} of ${totalBatches} — cover distinct subtopics/angles so questions do not overlap with other parts.
+Rules:
+1. Ask questions directly without meta-references like "according to NCERT".
+2. All 4 options must be plausible, tricky distractors of similar length and formatting.
+3. "optionsInfo" MUST have 4 concise, informative explanations (one for each option A, B, C, D) teaching the concept behind every option.
+Return ONLY a valid JSON array:
+[{"topic":"Subtopic","type":"VVI or HOTS","q":"Question","options":["A","B","C","D"],"correct":0,"optionsInfo":["expA","expB","expC","expD"]}]`;
+
+      let modelId = window._activeGeminiModel || "gemini-3.8-flash";
+      const callModel = async (mId) => {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${mId}:generateContent?key=${encodeURIComponent(apiKey)}`;
+        return fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.7,
+              responseMimeType: "application/json",
+              thinkingConfig: { thinkingLevel: "low" }
+            }
+          })
+        });
+      };
+
+      let res;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        res = await callModel(modelId);
+        if (res.status !== 429 && res.status < 500) break;
+        if (attempt < 3) {
+          const retryAfter = Number(res.headers.get("Retry-After"));
+          const waitMs = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : Math.min(2000 * (2 ** attempt), 15000);
+          await new Promise(resolve => setTimeout(resolve, waitMs));
+        }
+      }
+      if (res.status === 404) {
+        const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`);
+        if (listRes.ok) {
+          const listData = await listRes.json();
+          const flashModels = (listData.models || []).filter(m =>
+            m.name && m.name.includes("flash") && !m.name.includes("tts") &&
+            Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes("generateContent")
+          );
+          if (flashModels.length > 0) {
+            modelId = flashModels[flashModels.length - 1].name.replace(/^models\//, "");
+            window._activeGeminiModel = modelId;
+            res = await callModel(modelId);
+          }
+        }
+      }
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`API Error (${res.status}): ${errText.slice(0, 180)}`);
+      }
+
+      const data = await res.json();
+      const candidate = data?.candidates?.[0];
+      const rawText = (candidate?.content?.parts || []).map(p => p.text || "").join("").trim();
+      if (!rawText) {
+        const reason = candidate?.finishReason || data?.promptFeedback?.blockReason || "empty response";
+        throw new Error(`Gemini returned no question text (${reason}). Try fewer questions or another topic.`);
+      }
+      const cleaned = rawText.replace(/^```(?:json)?\\s*/i, "").replace(/\\s*```$/i, "").trim();
+      let parsed;
+      try { parsed = JSON.parse(cleaned); }
+      catch (e) { throw new Error("Gemini response was not valid JSON. Try generating a smaller batch."); }
+      if (!Array.isArray(parsed)) throw new Error("Model did not return a JSON array.");
+      return parsed.filter(item => item && item.q && Array.isArray(item.options) && item.options.length === 4 && typeof item.correct === "number" && Array.isArray(item.optionsInfo) && item.optionsInfo.length === 4);
+    }
+
+    startAiGenBtn.addEventListener("click", async () => {
+      if (isGeneratingBg) return;
+      const topic = aiTopicInput.value.trim();
+      const level = aiExamLevel.value;
+      const totalWanted = parseInt(aiQuestionCount.value, 10);
+      const language = aiLanguage.value;
+      const apiKey = aiApiKeyInput.value.trim();
+
+      aiErrorBox.classList.add("hidden");
+      if (!topic) { aiErrorBox.textContent = "Please enter a subject or chapter topic."; aiErrorBox.classList.remove("hidden"); return; }
+      if (!apiKey) { aiErrorBox.textContent = "Please enter your free Gemini API key."; aiErrorBox.classList.remove("hidden"); return; }
+
+      saveApiKey(apiKey);
+      isGeneratingBg = true;
+      startAiGenBtn.disabled = true;
+      startAiGenBtn.textContent = "Generating...";
+      aiProgressBox.classList.remove("hidden");
+      await requestWakeLock();
+
+      const BATCH_SIZE = 5;
+      const totalBatches = Math.ceil(totalWanted / BATCH_SIZE);
+      const batchCounts = [];
+      let left = totalWanted;
+      for (let b = 0; b < totalBatches; b++) {
+        const c = Math.min(BATCH_SIZE, left);
+        batchCounts.push(c);
+        left -= c;
+      }
+
+      let completedBatches = 0;
+      let allGenerated = [];
+      const updateProg = () => {
+        const pct = Math.round((completedBatches / totalBatches) * 100);
+        const msg = `Generated ${allGenerated.length}/${totalWanted} Qs (${completedBatches}/${totalBatches} parallel batches)...`;
+        aiProgressText.textContent = msg;
+        aiProgressPct.textContent = `${pct}%`;
+        aiProgressBar.style.width = `${pct}%`;
+        bgGenPillText.textContent = msg;
+      };
+      updateProg();
+
+      try {
+        for (let idx = 0; idx < batchCounts.length; idx++) {
+          const qs = await fetchGeminiBatch(apiKey, topic, level, language, batchCounts[idx], idx + 1, totalBatches);
+          allGenerated = allGenerated.concat(qs);
+          completedBatches++;
+          updateProg();
+        }
+
+                if (allGenerated.length === 0) throw new Error("No valid questions were returned. Please try again.");
+
+        const newTest = {
+          id: "test-" + Date.now(),
+          title: topic,
+          subtitle: `${level} • ${language}`,
+          createdAt: new Date().toISOString().slice(0, 10),
+          questions: allGenerated.slice(0, totalWanted).map((q, idx) => ({ ...q, id: idx + 1 })),
+          userAnswers: new Array(Math.min(allGenerated.length, totalWanted)).fill(null),
+          markedForReview: new Array(Math.min(allGenerated.length, totalWanted)).fill(false),
+          bookmarked: new Array(Math.min(allGenerated.length, totalWanted)).fill(false)
+        };
+
+        tests.unshift(newTest);
+        saveTests(tests);
+        aiGenModal.classList.add("hidden");
+        bgGenPill.classList.add("hidden");
+        showToast(`Ready! "${topic}" (${newTest.questions.length} Qs) saved.`);
+        if (!homeView.classList.contains("hidden")) renderLibrary();
+        startTest(newTest.id);
+      } catch (err) {
+        bgGenPill.classList.add("hidden");
+        aiGenModal.classList.remove("hidden");
+        aiErrorBox.textContent = err.message || "Failed to generate questions. Check your API key or internet.";
+        aiErrorBox.classList.remove("hidden");
+      } finally {
+        isGeneratingBg = false;
+        releaseWakeLock();
+        startAiGenBtn.disabled = false;
+        startAiGenBtn.textContent = "Generate & Start CBT";
+      }
+    });
+
+    // ==================== IMPORT JSON MODAL ====================
+    const importTitleInput = document.getElementById("importTitleInput");
+    const importFileInput = document.getElementById("importFileInput");
+    const importJsonTextarea = document.getElementById("importJsonTextarea");
+    const importErrorBox = document.getElementById("importErrorBox");
+
+    document.getElementById("openImportModalBtn").addEventListener("click", () => {
+      importErrorBox.classList.add("hidden");
+      importModal.classList.remove("hidden");
+    });
+    document.getElementById("closeImportModalBtn").addEventListener("click", () => importModal.classList.add("hidden"));
+    document.getElementById("cancelImportBtn").addEventListener("click", () => importModal.classList.add("hidden"));
+
+    importFileInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (!importTitleInput.value.trim()) importTitleInput.value = file.name.replace(/\.json$/i, "");
+      const reader = new FileReader();
+      reader.onload = () => { importJsonTextarea.value = reader.result; };
+      reader.readAsText(file);
+    });
+
+    document.getElementById("fillSampleJsonBtn").addEventListener("click", () => {
+      importTitleInput.value = "Sample Polity Quiz";
+      importJsonTextarea.value = JSON.stringify([
+        {
+          topic: "Fundamental Rights",
+          type: "VVI",
+          q: "Which Article of the Indian Constitution abolishes 'Untouchability' and forbids its practice in any form?",
+          options: ["Article 14", "Article 15", "Article 17", "Article 21"],
+          correct: 2,
+          optionsInfo: [
+            "Article 14 guarantees equality before the law.",
+            "Article 15 prohibits discrimination on grounds of religion, race, caste, sex, or place of birth.",
+            "Correct! Article 17 abolishes untouchability and makes its practice a punishable offence.",
+            "Article 21 guarantees protection of life and personal liberty."
+          ]
+        }
+      ], null, 2);
+    });
+
+    document.getElementById("confirmImportBtn").addEventListener("click", () => {
+      importErrorBox.classList.add("hidden");
+      const title = importTitleInput.value.trim() || "Imported CBT Test";
+      try {
+        const parsed = JSON.parse(importJsonTextarea.value.trim());
+        if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("JSON must be a non-empty array of questions.");
+        const valid = parsed.filter(item => item.q && Array.isArray(item.options) && item.options.length === 4 && typeof item.correct === "number");
+        if (valid.length === 0) throw new Error("No valid question objects found.");
+
+        const normalized = valid.map((q, idx) => ({
+          id: idx + 1,
+          topic: q.topic || "General",
+          type: q.type || "VVI",
+          q: q.q,
+          options: q.options,
+          correct: q.correct,
+          optionsInfo: Array.isArray(q.optionsInfo) && q.optionsInfo.length === 4 ? q.optionsInfo : q.options.map((_, i) => i === q.correct ? "Correct answer." : "Incorrect option.")
+        }));
+
+        const newTest = {
+          id: "import-" + Date.now(),
+          title,
+          subtitle: "Imported CBT Test",
+          createdAt: new Date().toISOString().slice(0, 10),
+          questions: normalized,
+          userAnswers: new Array(normalized.length).fill(null),
+          markedForReview: new Array(normalized.length).fill(false),
+          bookmarked: new Array(normalized.length).fill(false)
+        };
+
+        tests.unshift(newTest);
+        saveTests(tests);
+        importModal.classList.add("hidden");
+        renderLibrary();
+        showToast(`Imported "${title}" (${normalized.length} Qs)!`);
+      } catch (err) {
+        importErrorBox.textContent = err.message || "Invalid JSON format.";
+        importErrorBox.classList.remove("hidden");
+      }
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener("keydown", (e) => {
+      if (examView.classList.contains("hidden")) return;
+      if (!resultModal.classList.contains("hidden") || !confirmModal.classList.contains("hidden")) return;
+      const key = e.key.toLowerCase();
+      if (key === "arrowleft" && currentIndex > 0) { currentIndex--; renderQuestion(); }
+      else if (key === "arrowright") {
+        const test = getActiveTest();
+        if (currentIndex < test.questions.length - 1) { currentIndex++; renderQuestion(); }
+      }
+      else if (["1", "a"].includes(key)) selectOption(0);
+      else if (["2", "b"].includes(key)) selectOption(1);
+      else if (["3", "c"].includes(key)) selectOption(2);
+      else if (["4", "d"].includes(key)) selectOption(3);
+    });
+
+    // Initial render
+    renderLibrary();
+  </script>
+</body>
+</html>
